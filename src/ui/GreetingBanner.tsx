@@ -4,8 +4,16 @@ const GRADIENT_COLORS = ["#62A7FF", "#72B9F4", "#86CBE1", "#9ADBBE"];
 
 export function GreetingBanner() {
   return (
-    <box flexDirection="column" gap={1} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
-      <box flexDirection="row" gap={1} alignItems="flex-start">
+    <box
+      flexDirection="column"
+      justifyContent="space-between"
+      height={11}
+      paddingLeft={1}
+      paddingRight={1}
+      paddingTop={1}
+      paddingBottom={1}
+    >
+      <box flexDirection="row" gap={1} alignItems="flex-start" height={8}>
         <text fg="#C887FF" attributes={TextAttributes.BOLD}>
           &gt;
         </text>

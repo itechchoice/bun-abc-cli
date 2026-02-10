@@ -17,7 +17,7 @@ function getRoleColor(role: ChatMessage["role"]): string {
 
 export function MessagePane({ messages }: MessagePaneProps) {
   return (
-    <box flexGrow={1} paddingLeft={1} paddingRight={1}>
+    <box flexGrow={1} paddingLeft={1} paddingRight={1} paddingTop={1}>
       {messages.length === 0 ? (
         <text attributes={TextAttributes.DIM}>Ready. Start typing in the input bar below.</text>
       ) : (
