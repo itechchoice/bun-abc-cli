@@ -8,6 +8,7 @@
 
 1. OpenTUI React bindings 文档：<https://opentui.com/docs/bindings/react>
 2. OpenTUI GitHub 仓库：<https://github.com/anomalyco/opentui>
+3. Bun 官方文档：<https://bun.com/docs>
 
 ## 2. 我已熟悉的关键点
 
@@ -41,9 +42,15 @@
 4. README 给出了 docs、development guide、examples 等入口，适合遇到问题时按官方路径排查。
 5. GitHub 页面显示（截至 2026-02-10）最新 release 为 `v0.1.77`（页面标注日期为 2026-02-02）。
 
+### 2.3 Bun（运行时与工程约束）
+
+1. 当前项目由 Bun 脚手架创建，运行时与依赖管理默认应保持 Bun。
+2. 工程命令应优先使用 `bun install`、`bun run`、`bunx`。
+3. 在引入新库（尤其是 workflow/AI SDK）前，应先确认 Bun 兼容性。
+
 ## 3. 对当前项目的明确结论
 
-1. 技术路线应保持为 `OpenTUI + React`，这是与你技能结构最匹配的路线。
+1. 技术路线应保持为 `OpenTUI + React + TypeScript + Bun`，这是与你技能结构最匹配的路线。
 2. 当前项目继续使用 React 组件化思维开发终端界面是正确方向，不应改成纯命令式 Node CLI。
 3. 开发时优先查官方文档和仓库信息，再做实现；Context7 可作为检索入口。
 4. 工程策略应采用“渐进增强”：先做可用 UI 骨架，再迭代工具调用、会话、状态管理和可视化反馈。
@@ -61,3 +68,4 @@
 - React bindings：<https://opentui.com/docs/bindings/react>
 - GitHub 仓库：<https://github.com/anomalyco/opentui>
 - OpenTUI docs 入口：<https://opentui.com/docs/getting-started>
+- Bun 文档：<https://bun.com/docs>

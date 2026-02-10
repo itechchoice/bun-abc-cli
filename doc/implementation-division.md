@@ -1,11 +1,11 @@
-# 更新后的落地分工（OpenTUI + React）
+# 更新后的落地分工（OpenTUI + React + Bun）
 
 - 记录时间：2026-02-10
 - 适用项目：`/Users/hejin/Documents/happy-2026/abc-cli`
 
 ## 背景
 
-当前项目技术栈固定为 `OpenTUI + React`，目标是基于 React 的熟悉模式构建公司自己的 CLI 产品能力。CLI 产品核心是“交互 + 状态管理 + 工作流”。
+当前项目技术栈固定为 `OpenTUI + React + TypeScript + Bun`，目标是基于 React 的熟悉模式构建公司自己的 CLI 产品能力。CLI 产品核心是“交互 + 状态管理 + 工作流”。
 
 ## 分工方案
 
@@ -40,4 +40,10 @@
 
 - 不移除 OpenTUI 技术栈。
 - 不改为纯 Node 命令式 CLI（除非你明确要求）。
+- Bun-first：依赖安装、脚本执行、工具调用默认使用 `bun` 生态命令。
+- 新增库前先验证 Bun 兼容性，避免后期运行时回退。
 - 技术问题优先查官方文档与仓库（可通过 Context7 辅助）。
+
+## 参考文档
+
+- Bun 文档：<https://bun.com/docs>
