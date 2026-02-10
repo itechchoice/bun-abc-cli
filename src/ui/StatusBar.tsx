@@ -10,25 +10,23 @@ interface StatusBarProps {
 
 function getStatusColor(status: AppStatus): string {
   if (status === "thinking") {
-    return "yellow";
+    return "#F6D06E";
   }
   if (status === "error") {
-    return "red";
+    return "#FF7C8A";
   }
-  return "green";
+  return "#7DC4FF";
 }
 
 export function StatusBar({ status, sessionId, providerName, toolsLabel, errorSummary }: StatusBarProps) {
   const shortSessionId = sessionId.length > 8 ? sessionId.slice(-8) : sessionId;
-  const shortError = errorSummary ? errorSummary.slice(0, 12) : "none";
+  const shortError = errorSummary ? errorSummary.slice(0, 16) : "none";
 
   return (
-    <box border paddingLeft={1} paddingRight={1}>
-      <text>
-        <span fg={getStatusColor(status)}>{`st=${status}`}</span>
-        {` | sid=${shortSessionId} | p=${providerName} | t=${toolsLabel} | `}
-        <span fg="red">{`err=${shortError}`}</span>
-      </text>
+    <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
+      <text fg="#7DC4FF">{`~/abc-cli | sid:${shortSessionId}`}</text>
+      <text fg={status === "error" ? "#FF7C8A" : "#8A93A6"}>{status === "error" ? `error:${shortError}` : `status:${status}`}</text>
+      <text fg="#D384F8">{`${providerName} | ${toolsLabel}`}</text>
     </box>
   );
 }

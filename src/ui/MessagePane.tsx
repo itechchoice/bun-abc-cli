@@ -7,19 +7,19 @@ interface MessagePaneProps {
 
 function getRoleColor(role: ChatMessage["role"]): string {
   if (role === "assistant") {
-    return "cyan";
+    return "#8BD0FF";
   }
   if (role === "user") {
-    return "green";
+    return "#9EDCAA";
   }
-  return "yellow";
+  return "#F8D27A";
 }
 
 export function MessagePane({ messages }: MessagePaneProps) {
   return (
-    <box title="Messages" border flexGrow={1} padding={1}>
+    <box flexGrow={1} paddingLeft={1} paddingRight={1}>
       {messages.length === 0 ? (
-        <text attributes={TextAttributes.DIM}>No messages yet. Type a prompt and press Enter.</text>
+        <text attributes={TextAttributes.DIM}>Ready. Start typing in the input bar below.</text>
       ) : (
         <scrollbox flexGrow={1} scrollY stickyScroll stickyStart="bottom">
           <box flexDirection="column" gap={1}>
