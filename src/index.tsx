@@ -1,14 +1,27 @@
-import { createCliRenderer, TextAttributes } from "@opentui/core";
+import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
+import { MockProviderClient } from "./adapters/provider/mock-provider";
+import { MockToolRegistry } from "./adapters/tools/mock-tools";
+import { createMemoryConfigService } from "./services/memory-config-service";
+import { createMemorySessionService } from "./services/memory-session-service";
+import { AppStateProvider } from "./state/context";
+import { AppShell } from "./ui/AppShell";
+
+const sessionService = createMemorySessionService();
+const configService = createMemoryConfigService();
+const providerClient = new MockProviderClient();
+const toolRegistry = new MockToolRegistry();
 
 function App() {
   return (
-    <box alignItems="center" justifyContent="center" flexGrow={1}>
-      <box justifyContent="center" alignItems="flex-end">
-        <ascii-font font="tiny" text="OpenTUI" />
-        <text attributes={TextAttributes.DIM}>What will you build?</text>
-      </box>
-    </box>
+    <AppStateProvider sessionService={sessionService}>
+      <AppShell
+        providerClient={providerClient}
+        toolRegistry={toolRegistry}
+        configService={configService}
+        sessionService={sessionService}
+      />
+    </AppStateProvider>
   );
 }
 
