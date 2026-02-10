@@ -22,9 +22,18 @@ export function useChatController(options: UseChatControllerOptions) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const submitInFlightRef = useRef(false);
+  const suppressedInputValueRef = useRef<string | null>(null);
 
   const setDraft = useCallback(
     (value: string) => {
+      const suppressed = suppressedInputValueRef.current;
+      if (suppressed !== null) {
+        if (value === suppressed || value === "") {
+          return;
+        }
+        suppressedInputValueRef.current = null;
+      }
+
       if (submitInFlightRef.current || state.status === "thinking") {
         return;
       }
@@ -45,6 +54,7 @@ export function useChatController(options: UseChatControllerOptions) {
       }
 
       submitInFlightRef.current = true;
+      suppressedInputValueRef.current = prompt;
 
       dispatch({
         type: "chat/submit_start",
@@ -71,6 +81,7 @@ export function useChatController(options: UseChatControllerOptions) {
           errorText: toErrorText(error),
           draft: prompt,
         });
+        suppressedInputValueRef.current = null;
       } finally {
         submitInFlightRef.current = false;
       }

@@ -30,16 +30,15 @@ export function InputPane({ draft, status, canSubmit, onInput, onSubmit }: Input
 
   return (
     <box flexDirection="column" gap={1}>
-      <box backgroundColor="#2A3748" paddingLeft={1} paddingRight={1} paddingTop={0} paddingBottom={0} flexDirection="row" alignItems="center" gap={1}>
-        <text fg="#D384F8">&gt;</text>
+      <box backgroundColor="#2A3748" paddingLeft={1} paddingRight={1}>
         <input
           ref={inputRef}
           value={draft}
-          placeholder={status === "thinking" ? "Thinking..." : "Type your message or @path/to/file"}
+          placeholder={status === "thinking" ? "Thinking..." : "> Type your message or @path/to/file"}
           onInput={onInput}
           onSubmit={handleSubmit}
           focused={status !== "thinking"}
-          flexGrow={1}
+          width="100%"
         />
       </box>
       <text attributes={TextAttributes.DIM}>{canSubmit ? "Enter to submit" : "Waiting for input"}</text>
