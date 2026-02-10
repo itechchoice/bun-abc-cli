@@ -5,6 +5,7 @@ import { useChatController } from "../hooks/use-chat-controller";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { ConfigService } from "../services/config-service";
 import type { SessionService } from "../services/session-service";
+import { GreetingBanner } from "./GreetingBanner";
 import { Header } from "./Header";
 import { InputPane } from "./InputPane";
 import { MessagePane } from "./MessagePane";
@@ -34,6 +35,7 @@ export function AppShell({ providerClient, toolRegistry, configService, sessionS
 
   return (
     <box flexDirection="column" width="100%" height="100%" padding={1} gap={1}>
+      <GreetingBanner />
       <Header />
       <MessagePane messages={state.messages} />
       <InputPane draft={state.draft} status={state.status} canSubmit={canSubmit} onInput={setDraft} onSubmit={submit} />
