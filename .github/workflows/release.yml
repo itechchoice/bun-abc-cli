@@ -1,0 +1,88 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+          - os: macos-13
+          - os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build archive
+        run: scripts/release/build-archive.sh "${GITHUB_REF_NAME}"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            dist/release/*.tar.gz
+            dist/release/*.sha256
+
+  publish:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/release
+          merge-multiple: true
+
+      - name: Compose checksums
+        run: |
+          cat dist/release/*.sha256 | sort -k2 > dist/release/checksums.txt
+
+      - name: Generate Homebrew formula
+        run: |
+          scripts/release/generate-homebrew-formula.sh \
+            --tag "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --checksums dist/release/checksums.txt \
+            --output dist/release/abc.rb
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/release/*.tar.gz
+            dist/release/checksums.txt
+            dist/release/abc.rb
+          generate_release_notes: true
+
+      - name: Publish formula to tap repo
+        if: ${{ secrets.HOMEBREW_TAP_REPO != '' && secrets.HOMEBREW_TAP_TOKEN != '' }}
+        env:
+          HOMEBREW_TAP_REPO: ${{ secrets.HOMEBREW_TAP_REPO }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          scripts/release/publish-formula-to-tap.sh \
+            dist/release/abc.rb \
+            "${HOMEBREW_TAP_REPO}" \
+            "${HOMEBREW_TAP_TOKEN}" \
+            "${VERSION#v}"
