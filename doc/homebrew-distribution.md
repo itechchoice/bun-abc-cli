@@ -23,12 +23,18 @@
 
 ## 发布流程（每个版本）
 
-1. 打 tag 并推送：
+1. 触发方式二选一：
+
+- 方式 A（自动）：打 tag 并推送
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+- 方式 B（手动）：GitHub Actions 页面运行 `release` workflow
+  - 进入 `Actions -> release -> Run workflow`
+  - `version` 输入：`v0.1.0`（必须以 `v` 开头）
 
 2. Actions 自动执行：
    - 编译各平台可执行文件

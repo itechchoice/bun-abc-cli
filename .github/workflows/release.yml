@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag (must start with v), e.g. v0.1.0"
+        required: true
+        type: string
 
 jobs:
   build:
@@ -15,6 +21,8 @@ jobs:
           - os: macos-13
           - os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,8 +35,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Validate release tag
+        run: |
+          if [[ ! "${RELEASE_TAG}" =~ ^v.+ ]]; then
+            echo "version must start with v, got: ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+
       - name: Build archive
-        run: scripts/release/build-archive.sh "${GITHUB_REF_NAME}"
+        run: scripts/release/build-archive.sh "${RELEASE_TAG}"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
@@ -44,6 +59,7 @@ jobs:
     permissions:
       contents: write
     env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
       HOMEBREW_TAP_REPO: ${{ secrets.HOMEBREW_TAP_REPO }}
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
@@ -63,7 +79,7 @@ jobs:
       - name: Generate Homebrew formula
         run: |
           scripts/release/generate-homebrew-formula.sh \
-            --tag "${GITHUB_REF_NAME}" \
+            --tag "${RELEASE_TAG}" \
             --repo "${GITHUB_REPOSITORY}" \
             --checksums dist/release/checksums.txt \
             --output dist/release/abc.rb
@@ -71,6 +87,8 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           files: |
             dist/release/*.tar.gz
             dist/release/checksums.txt
@@ -80,7 +98,7 @@ jobs:
       - name: Publish formula to tap repo
         if: ${{ env.HOMEBREW_TAP_REPO != '' && env.HOMEBREW_TAP_TOKEN != '' }}
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ env.RELEASE_TAG }}
         run: |
           scripts/release/publish-formula-to-tap.sh \
             dist/release/abc.rb \
