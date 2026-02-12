@@ -72,29 +72,6 @@ bun add -g github:<owner>/<repo>
 bun remove -g abc-cli
 ```
 
-## Homebrew Install (发布后)
-
-### 方式 1：通过 tap（推荐）
-
-```bash
-brew install <owner>/cli/abc
-```
-
-要求 tap 仓库名为 `homebrew-cli`（`homebrew-` 前缀会在命令中省略）：
-
-```bash
-brew install <owner>/cli/abc
-```
-
-### 方式 2：直接安装公式 URL（无需 tap）
-
-```bash
-brew install --formula https://raw.githubusercontent.com/<owner>/homebrew-cli/main/Formula/abc.rb
-```
-
-> 当前仓库已内置发布脚本与 GitHub Actions（tag `v*` 自动构建二进制并生成 `abc.rb`）。
-> 详细步骤见：`doc/homebrew-distribution.md`
-
 ## UX Notes
 
 - 启动时固定显示 Greeting Banner（非阻塞）。

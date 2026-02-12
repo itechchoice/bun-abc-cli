@@ -9,9 +9,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
     "start": "bun run src/index.tsx",
-    "typecheck": "bunx tsc --noEmit",
-    "release:build": "scripts/release/build-archive.sh",
-    "release:formula": "scripts/release/generate-homebrew-formula.sh"
+    "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest"
