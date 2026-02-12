@@ -41,7 +41,7 @@ export function GreetingBanner() {
         ))}
       </box>
       <text attributes={TextAttributes.DIM}>
-        abc-cli preview | OpenTUI + React + TypeScript + Bun
+        abc-cli preview | Powered by Alphabitcore
       </text>
     </box>
   );

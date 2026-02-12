@@ -1,6 +1,7 @@
 import { type InputRenderable, TextAttributes } from "@opentui/core";
 import { useEffect, useRef } from "react";
 import type { AppStatus, SurfacePhase } from "../state/types";
+import { LoadingIndicator } from "./LoadingIndicator";
 
 interface InputPaneProps {
   draft: string;
@@ -30,6 +31,8 @@ function getPlaceholder(surfacePhase: SurfacePhase, status: AppStatus): string {
 export function InputPane({ draft, status, surfacePhase, canSubmit, onInput, onSubmit }: InputPaneProps) {
   const inputRef = useRef<InputRenderable | null>(null);
   const inputEnabled = surfacePhase !== "submitted" && surfacePhase !== "observing";
+  const showSubmitting = status === "submitting";
+  const showObserving = status === "observing";
 
   useEffect(() => {
     if (!inputRef.current) {
@@ -61,9 +64,14 @@ export function InputPane({ draft, status, surfacePhase, canSubmit, onInput, onS
           width="100%"
         />
       </box>
-      <text attributes={TextAttributes.DIM}>
-        {inputEnabled ? (canSubmit ? "Enter to submit intent" : "Waiting for intent input") : "Read-only observation in progress"}
-      </text>
+      {inputEnabled ? (
+        <text attributes={TextAttributes.DIM}>{canSubmit ? "Enter to submit intent" : "Waiting for intent input"}</text>
+      ) : (
+        <box flexDirection="row" gap={1}>
+          <LoadingIndicator active={showSubmitting || showObserving} label={showSubmitting ? "submitting" : "observing"} color="#8BD0FF" />
+          <text attributes={TextAttributes.DIM}>Read-only observation in progress</text>
+        </box>
+      )}
     </box>
   );
 }
