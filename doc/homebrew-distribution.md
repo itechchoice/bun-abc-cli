@@ -10,7 +10,7 @@
 3. Tap 推送脚本：`scripts/release/publish-formula-to-tap.sh`
 4. 自动发布工作流：`.github/workflows/release.yml`
    - 触发条件：推送 tag（`v*`）
-   - 产物：`darwin-arm64` / `darwin-amd64` / `linux-amd64` 二进制压缩包 + `checksums.txt` + `abc.rb`
+   - 产物：按可用 runner 生成的二进制压缩包（当前默认 `darwin-arm64` + `linux-amd64`）+ `checksums.txt` + `abc.rb`
 
 ## 你需要做的事（一次性）
 
@@ -72,7 +72,7 @@ bun run release:formula -- \
 ## 产物命名约定
 
 - `abc-<version>-darwin-arm64.tar.gz`
-- `abc-<version>-darwin-amd64.tar.gz`
 - `abc-<version>-linux-amd64.tar.gz`
+- `abc-<version>-darwin-amd64.tar.gz`（若对应 runner 可用则会生成）
 
 `version` 为去掉 `v` 前缀后的版本号，例如 tag `v0.1.0` -> `0.1.0`。

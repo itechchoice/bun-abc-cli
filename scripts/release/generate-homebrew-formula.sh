@@ -55,14 +55,10 @@ fi
 
 VERSION="${TAG#v}"
 
-get_sha() {
+try_get_sha() {
   local filename="$1"
   local sha
   sha="$(awk -v file="${filename}" '$2 == file { print $1 }' "${CHECKSUMS_FILE}")"
-  if [[ -z "${sha}" ]]; then
-    echo "missing checksum for ${filename}" >&2
-    exit 1
-  fi
   echo "${sha}"
 }
 
@@ -70,21 +66,32 @@ DARWIN_ARM64_FILE="abc-${VERSION}-darwin-arm64.tar.gz"
 DARWIN_AMD64_FILE="abc-${VERSION}-darwin-amd64.tar.gz"
 LINUX_AMD64_FILE="abc-${VERSION}-linux-amd64.tar.gz"
 
-DARWIN_ARM64_SHA="$(get_sha "${DARWIN_ARM64_FILE}")"
-DARWIN_AMD64_SHA="$(get_sha "${DARWIN_AMD64_FILE}")"
-LINUX_AMD64_SHA="$(get_sha "${LINUX_AMD64_FILE}")"
+DARWIN_ARM64_SHA="$(try_get_sha "${DARWIN_ARM64_FILE}")"
+DARWIN_AMD64_SHA="$(try_get_sha "${DARWIN_AMD64_FILE}")"
+LINUX_AMD64_SHA="$(try_get_sha "${LINUX_AMD64_FILE}")"
 
 BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 
 mkdir -p "$(dirname "${OUTPUT}")"
+
+if [[ -z "${DARWIN_ARM64_SHA}" && -z "${DARWIN_AMD64_SHA}" && -z "${LINUX_AMD64_SHA}" ]]; then
+  echo "no release artifacts found in checksums file" >&2
+  exit 1
+fi
 
 cat > "${OUTPUT}" <<EOF
 class Abc < Formula
   desc "OpenTUI + React CLI for business contract intent ingress and read-only observation"
   homepage "https://github.com/${REPO}"
   version "${VERSION}"
+EOF
 
-  on_macos do
+if [[ -n "${DARWIN_ARM64_SHA}" || -n "${DARWIN_AMD64_SHA}" ]]; then
+  {
+    echo ""
+    echo "  on_macos do"
+    if [[ -n "${DARWIN_ARM64_SHA}" && -n "${DARWIN_AMD64_SHA}" ]]; then
+      cat <<EOF
     if Hardware::CPU.arm?
       url "${BASE_URL}/${DARWIN_ARM64_FILE}"
       sha256 "${DARWIN_ARM64_SHA}"
@@ -92,15 +99,59 @@ class Abc < Formula
       url "${BASE_URL}/${DARWIN_AMD64_FILE}"
       sha256 "${DARWIN_AMD64_SHA}"
     end
+EOF
+    elif [[ -n "${DARWIN_ARM64_SHA}" ]]; then
+      cat <<EOF
+    if Hardware::CPU.arm?
+      url "${BASE_URL}/${DARWIN_ARM64_FILE}"
+      sha256 "${DARWIN_ARM64_SHA}"
+    else
+      odie "No macOS amd64 release artifact available for version ${VERSION}"
+    end
+EOF
+    else
+      cat <<EOF
+    if Hardware::CPU.intel?
+      url "${BASE_URL}/${DARWIN_AMD64_FILE}"
+      sha256 "${DARWIN_AMD64_SHA}"
+    else
+      odie "No macOS arm64 release artifact available for version ${VERSION}"
+    end
+EOF
+    fi
+    echo "  end"
+  } >> "${OUTPUT}"
+else
+  cat >> "${OUTPUT}" <<EOF
+
+  on_macos do
+    odie "No macOS release artifact available for version ${VERSION}"
   end
+EOF
+fi
+
+if [[ -n "${LINUX_AMD64_SHA}" ]]; then
+  cat >> "${OUTPUT}" <<EOF
 
   on_linux do
     if Hardware::CPU.intel?
       url "${BASE_URL}/${LINUX_AMD64_FILE}"
       sha256 "${LINUX_AMD64_SHA}"
+    else
+      odie "No Linux arm64 release artifact available for version ${VERSION}"
     end
   end
+EOF
+else
+  cat >> "${OUTPUT}" <<EOF
 
+  on_linux do
+    odie "No Linux release artifact available for version ${VERSION}"
+  end
+EOF
+fi
+
+cat >> "${OUTPUT}" <<EOF
   def install
     bin.install "abc"
   end
