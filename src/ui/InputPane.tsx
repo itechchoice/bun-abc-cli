@@ -68,7 +68,13 @@ export function InputPane({ draft, status, surfacePhase, canSubmit, onInput, onS
         <text attributes={TextAttributes.DIM}>{canSubmit ? "Enter to submit intent" : "Waiting for intent input"}</text>
       ) : (
         <box flexDirection="row" gap={1}>
-          <LoadingIndicator active={showSubmitting || showObserving} label={showSubmitting ? "submitting" : "observing"} color="#8BD0FF" />
+          <LoadingIndicator
+            active={showSubmitting || showObserving}
+            label={showSubmitting ? "submitting" : "observing"}
+            variant="pixel"
+            pattern={showSubmitting ? "pulse" : "spiral"}
+            color="#8BD0FF"
+          />
           <text attributes={TextAttributes.DIM}>Read-only observation in progress</text>
         </box>
       )}
