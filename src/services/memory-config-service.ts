@@ -1,7 +1,7 @@
 import type { ConfigService, RuntimeConfig } from "./config-service";
 
 const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
-  provider: "mock",
+  provider: "contract-mock",
 };
 
 export function createMemoryConfigService(): ConfigService {
