@@ -1,9 +1,11 @@
 import { TextAttributes } from "@opentui/core";
+import type { ShellLogEntry } from "../cli/shell/types";
 import type { ExecutionViewModel, SurfacePhase } from "../state/types";
 
 interface MessagePaneProps {
   viewModel: ExecutionViewModel;
   surfacePhase: SurfacePhase;
+  shellLogs: ShellLogEntry[];
 }
 
 function getStatusColor(status: ExecutionViewModel["status"]): string {
@@ -29,24 +31,54 @@ function formatTimestamp(ts: number | null): string {
   return new Date(ts).toLocaleTimeString("en-US", { hour12: false });
 }
 
-export function MessagePane({ viewModel, surfacePhase }: MessagePaneProps) {
+export function MessagePane({ viewModel, surfacePhase, shellLogs }: MessagePaneProps) {
+  const renderShellLogLines = () => {
+    if (shellLogs.length === 0) {
+      return (
+        <text attributes={TextAttributes.DIM}>No command output yet.</text>
+      );
+    }
+    return shellLogs.map((entry) => {
+      const color = entry.level === "error"
+        ? "#FF7C8A"
+        : entry.level === "success"
+          ? "#9EDCAA"
+          : entry.level === "command"
+            ? "#F6D06E"
+            : "#D7DEE8";
+      return (
+        <text key={entry.id} fg={color}>
+          {`[${new Date(entry.ts).toLocaleTimeString("en-US", { hour12: false })}] ${entry.text}`}
+        </text>
+      );
+    });
+  };
+
   if (!viewModel.executionId) {
     return (
-      <box flexGrow={1} paddingLeft={1} paddingRight={1} paddingTop={1} flexDirection="column" gap={1}>
-        <text attributes={TextAttributes.DIM}>Non-Plane Intent Ingress (CLI)</text>
-        <text attributes={TextAttributes.DIM}>Submit only Business Contract. No execution authority, no decision authority.</text>
-        <text attributes={TextAttributes.DIM}>Input format:</text>
-        <text attributes={TextAttributes.DIM}>objective: ...</text>
-        <text attributes={TextAttributes.DIM}>context_refs: ref://a,ref://b</text>
-        <text attributes={TextAttributes.DIM}>constraints: read_only,no_destructive</text>
-        <text attributes={TextAttributes.DIM}>execution_strategy: once | max_runs:3 | cron:0 */2 * * * | until_condition:...</text>
-        {surfacePhase === "terminal" ? <text fg="#F6D06E">Execution terminal. Start a new intent to create a new execution instance.</text> : null}
+      <box flexGrow={1} minHeight={0} paddingLeft={1} paddingRight={1} paddingTop={1} flexDirection="column">
+        <scrollbox flexGrow={1} scrollY stickyScroll stickyStart="bottom">
+          <box flexDirection="column" gap={1}>
+            <text attributes={TextAttributes.DIM}>Non-Plane Intent Ingress (CLI)</text>
+            <text attributes={TextAttributes.DIM}>Submit only Business Contract. No execution authority, no decision authority.</text>
+            <text attributes={TextAttributes.DIM}>Input format:</text>
+            <text attributes={TextAttributes.DIM}>objective: ...</text>
+            <text attributes={TextAttributes.DIM}>context_refs: ref://a,ref://b</text>
+            <text attributes={TextAttributes.DIM}>constraints: read_only,no_destructive</text>
+            <text attributes={TextAttributes.DIM}>execution_strategy: once | max_runs:3 | cron:0 */2 * * * | until_condition:...</text>
+            {surfacePhase === "terminal" ? <text fg="#F6D06E">Execution terminal. Start a new intent to create a new execution instance.</text> : null}
+            <box flexDirection="column" gap={1}>
+              <text fg="#8BD0FF">Command Log</text>
+              {renderShellLogLines()}
+            </box>
+          </box>
+        </scrollbox>
       </box>
     );
   }
 
   return (
-    <box flexGrow={1} paddingLeft={1} paddingRight={1} paddingTop={1} flexDirection="column" gap={1}>
+    <box flexGrow={1} minHeight={0} paddingLeft={1} paddingRight={1} paddingTop={1} flexDirection="column" gap={1}>
       <box flexDirection="row" justifyContent="space-between">
         <text fg="#7DC4FF">{`execution:${viewModel.executionId}`}</text>
         <text fg={getStatusColor(viewModel.status)}>{`status:${viewModel.status ?? "-"}`}</text>
@@ -91,6 +123,15 @@ export function MessagePane({ viewModel, surfacePhase }: MessagePaneProps) {
             ))}
           </box>
         )}
+      </box>
+
+      <box flexDirection="column" gap={1}>
+        <text fg="#8BD0FF">Command Log</text>
+        <scrollbox height={8} scrollY stickyScroll stickyStart="bottom">
+          <box flexDirection="column">
+            {renderShellLogLines()}
+          </box>
+        </scrollbox>
       </box>
     </box>
   );

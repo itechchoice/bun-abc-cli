@@ -29,7 +29,14 @@ export function StatusBar({
   const showObserving = status === "observing";
 
   return (
-    <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
+    <box
+      flexDirection="row"
+      justifyContent="space-between"
+      paddingLeft={1}
+      paddingRight={1}
+      backgroundColor="#1A2230"
+      flexShrink={0}
+    >
       <text fg="#7DC4FF">{`sid:${shortSessionId} exec:${shortExecutionId}`}</text>
       <box flexDirection="row" gap={1}>
         {showSubmitting ? <LoadingIndicator active label="submitting" variant="pixel" pattern="pulse" color="#F6D06E" /> : null}

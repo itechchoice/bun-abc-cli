@@ -130,7 +130,7 @@ export function useIntentController(options: UseIntentControllerOptions) {
 
   const setDraft = useCallback(
     (value: string) => {
-      if (submitInFlightRef.current || state.surfacePhase === "submitted" || state.surfacePhase === "observing") {
+      if (submitInFlightRef.current) {
         return;
       }
 

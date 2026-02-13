@@ -28,6 +28,33 @@ bun run start
 bun run src/index.tsx
 ```
 
+## Interactive Shell Mode
+
+`abc` 会进入交互壳（OpenTUI），在输入框里直接输入命令或普通文本。
+
+快捷命令：
+
+- `/login`
+- `/whoami`
+- `/logout`
+- `/mcp`（等价于 `mcp list`）
+
+手动命令：
+
+- `mcp add --server-code weather_mcp --url http://127.0.0.1:9001 --version v0`
+- `mcp get weather_mcp`
+- `run submit --objective "查 San Francisco 三日天气"`
+- `run status <execution_id>`
+- `run events --follow <execution_id>`
+- `run artifacts <execution_id>`
+- `run result <execution_id>`
+
+登录持久化：
+
+- 仅持久化 token（`~/.abc-cli/auth-token.json`）
+- 启动时自动校验 token；失败则清除并提示重新登录
+- `/logout` 会清除本地 token
+
 ## Global Install From GitHub
 
 将 `<owner>/<repo>` 替换为你的实际仓库：
