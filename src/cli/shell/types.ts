@@ -30,7 +30,7 @@ export type ParsedShellInput =
   | {
     kind: "slash";
     raw: string;
-    name: "login" | "logout" | "whoami" | "mcp";
+    name: "login" | "logout" | "whoami" | "mcp" | "exit";
   }
   | {
     kind: "command";

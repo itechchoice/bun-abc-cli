@@ -70,7 +70,7 @@ export function parseShellInput(raw: string): ParsedShellInput {
 
   if (trimmed.startsWith("/")) {
     const name = trimmed.slice(1).trim().split(/\s+/)[0];
-    if (name === "login" || name === "logout" || name === "whoami" || name === "mcp") {
+    if (name === "login" || name === "logout" || name === "whoami" || name === "mcp" || name === "exit") {
       return { kind: "slash", raw, name };
     }
     return { kind: "text", raw };

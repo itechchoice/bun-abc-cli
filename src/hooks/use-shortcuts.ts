@@ -1,16 +1,15 @@
-import { useKeyboard, useRenderer } from "@opentui/react";
+import { useKeyboard } from "@opentui/react";
 
 interface UseShortcutsOptions {
   onResetSession: () => void;
   onClearError: () => void;
+  onExit: () => void;
 }
 
 export function useShortcuts(options: UseShortcutsOptions): void {
-  const renderer = useRenderer();
-
   useKeyboard((key) => {
     if (key.ctrl && key.name === "c") {
-      renderer.destroy();
+      options.onExit();
       return;
     }
 

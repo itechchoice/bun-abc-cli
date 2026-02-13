@@ -10,6 +10,14 @@ describe("parseShellInput", () => {
     }
   });
 
+  test("parses exit slash command", () => {
+    const parsed = parseShellInput("/exit");
+    expect(parsed.kind).toBe("slash");
+    if (parsed.kind === "slash") {
+      expect(parsed.name).toBe("exit");
+    }
+  });
+
   test("parses manual mcp add", () => {
     const parsed = parseShellInput("mcp add --server-code weather_mcp --url http://127.0.0.1:9001 --version v0");
     expect(parsed.kind).toBe("command");

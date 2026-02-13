@@ -1,13 +1,13 @@
 import type { ProviderClient } from "../adapters/provider/types";
 import type { ToolRegistry } from "../adapters/tools/types";
 import { useMemo } from "react";
+import { useRenderer } from "@opentui/react";
 import { useCanSubmit, useErrorSummary } from "../hooks/use-app-state";
 import { useIntentController } from "../hooks/use-intent-controller";
 import { useShellCommandController } from "../hooks/use-shell-command-controller";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { ConfigService } from "../services/config-service";
 import type { SessionService } from "../services/session-service";
-import { GreetingBanner } from "./GreetingBanner";
 import { InputPane } from "./InputPane";
 import { MessagePane } from "./MessagePane";
 import { StatusBar } from "./StatusBar";
@@ -20,6 +20,13 @@ interface AppShellProps {
 }
 
 export function AppShell({ providerClient, toolRegistry, configService, sessionService }: AppShellProps) {
+  const renderer = useRenderer();
+  const exitShell = () => {
+    renderer.destroy();
+    setTimeout(() => {
+      process.exit(0);
+    }, 0);
+  };
   const runtimeConfig = configService.getRuntimeConfig();
   const canSubmit = useCanSubmit();
   const errorSummary = useErrorSummary();
@@ -32,6 +39,7 @@ export function AppShell({ providerClient, toolRegistry, configService, sessionS
     providerClient,
     sessionId: state.sessionId,
     submitIntent: submit,
+    onExit: exitShell,
   });
   const slashSuggestions = useMemo(() => {
     const query = state.draft.trim().toLowerCase();
@@ -43,6 +51,7 @@ export function AppShell({ providerClient, toolRegistry, configService, sessionS
       { command: "/whoami", description: "show current identity" },
       { command: "/logout", description: "clear local token" },
       { command: "/mcp", description: "list MCP servers" },
+      { command: "/exit", description: "exit abc-cli shell" },
     ];
     return options.filter((item) => item.command.startsWith(query) || query === "/");
   }, [state.draft]);
@@ -50,14 +59,11 @@ export function AppShell({ providerClient, toolRegistry, configService, sessionS
   useShortcuts({
     onResetSession: resetSession,
     onClearError: clearError,
+    onExit: exitShell,
   });
 
   return (
     <box flexDirection="column" width="100%" height="100%" paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
-      <box flexShrink={0}>
-        <GreetingBanner />
-      </box>
-
       <box flexGrow={1} minHeight={0}>
         <MessagePane viewModel={state.viewModel} surfacePhase={state.surfacePhase} shellLogs={shell.logs} />
       </box>

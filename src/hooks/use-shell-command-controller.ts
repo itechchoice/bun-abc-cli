@@ -9,6 +9,7 @@ interface UseShellCommandControllerOptions {
   providerClient: ProviderClient;
   sessionId: string;
   submitIntent: (rawPrompt?: string) => Promise<void>;
+  onExit?: () => void;
 }
 
 const TERMINAL_STATUSES: ReadonlySet<ExecutionStatus> = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
@@ -172,6 +173,12 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   }, [loginStep]);
 
   const handleSlashCommand = useCallback(async (name: ParsedShellInput & { kind: "slash" }) => {
+    if (name.name === "exit") {
+      appendLog("info", "Exiting abc-cli...");
+      options.onExit?.();
+      return;
+    }
+
     if (name.name === "login") {
       setLoginStep("await_username");
       loginDraftRef.current = { username: null };
@@ -207,7 +214,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         appendLog("info", `${item.serverCode}  active  ${item.url}  ${item.version}`);
       }
     }
-  }, [appendLog, authState.token, authState.username, ensureLoggedIn, mcpServers]);
+  }, [appendLog, authState.token, authState.username, ensureLoggedIn, mcpServers, options]);
 
   const handleMcpCommand = useCallback((parsed: Extract<ParsedShellInput, { kind: "command"; group: "mcp" }>) => {
     ensureLoggedIn();
@@ -457,13 +464,18 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     }
 
     if (loginStep !== "idle") {
+      if (input === "/exit") {
+        appendLog("command", `> ${input}`);
+        options.onExit?.();
+        return;
+      }
       await consumeLoginStep(input);
       return;
     }
 
     const parsed = parseShellInput(input);
     if (input.startsWith("/") && parsed.kind === "text") {
-      appendLog("error", "Unknown slash command. Supported: /login, /logout, /whoami, /mcp.");
+      appendLog("error", "Unknown slash command. Supported: /login, /logout, /whoami, /mcp, /exit.");
       return;
     }
     if (parsed.kind === "text") {

@@ -25,5 +25,9 @@ function App() {
   );
 }
 
-const renderer = await createCliRenderer();
+const renderer = await createCliRenderer({
+  // Copy-friendly mode: keep terminal selection and scrollback behavior.
+  useMouse: false,
+  useAlternateScreen: false,
+});
 createRoot(renderer).render(<App />);
