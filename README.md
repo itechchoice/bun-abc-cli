@@ -1,11 +1,10 @@
 # abc-cli
 
-`abc-cli` 是一个基于 `OpenTUI + React + TypeScript + Bun` 的终端产品原型。
+`abc-cli` 是一个基于 `OpenTUI + React + TypeScript + Bun` 的交互壳 CLI，当前按 `requirements/PLATFORM_API.md` 直连后端接口。
 
 ## Requirements
 
 - Bun
-- zsh（Ghostty 默认）
 
 ## Local Development
 
@@ -20,7 +19,13 @@ bun run dev
 bun run typecheck
 ```
 
-## Run in Repo
+测试：
+
+```bash
+bun test
+```
+
+## Run
 
 ```bash
 bun run start
@@ -28,112 +33,66 @@ bun run start
 bun run src/index.tsx
 ```
 
-## Interactive Shell Mode
+## Interactive Shell
 
-`abc` 会进入交互壳（OpenTUI），在输入框里直接输入命令或普通文本。
+启动：
 
-快捷命令：
+```bash
+abc
+```
+
+Slash 命令：
 
 - `/login`
-- `/whoami`
+- `/mcp`
 - `/logout`
-- `/mcp`（等价于 `mcp list`）
+- `/exit`
 
-手动命令：
+手动命令（核心）：
 
 - `mcp add --server-code weather_mcp --url http://127.0.0.1:9001 --version v0`
-- `mcp get weather_mcp`
+- `mcp list`
+- `mcp get <id>`
+- `session create --title "天气会话"`
 - `run submit --objective "查 San Francisco 三日天气"`
-- `run status <execution_id>`
-- `run events --follow <execution_id>`
-- `run artifacts <execution_id>`
-- `run result <execution_id>`
+- `run status <task_id>`
+- `run events --follow <task_id>`
+- `run artifacts <task_id>`
+- `run cancel <task_id>`
 
-登录持久化：
+完整命令契约见：`requirements/cli-command.md`。
 
-- 仅持久化 token（`~/.abc-cli/auth-token.json`）
-- 启动时自动校验 token；失败则清除并提示重新登录
-- `/logout` 会清除本地 token
+## Output Contract
+
+所有后端调用（成功或失败）都会输出：
+
+1. `> METHOD /path`
+2. `< STATUS <code>`
+3. 返回体 JSON（pretty print）
+
+SSE 事件流逐条输出：
+
+```json
+{"event":"task.created","data":{"task_id":20001,"status":"CREATED"}}
+```
+
+## Token Persistence
+
+- 仅持久化 `access_token`
+- 路径：`~/.abc-cli/auth-token.json`
+- 目录权限：`700`
+- 文件权限：`600`
+- 启动时自动探活 token；失效自动清理并提示重新 `/login`
 
 ## Global Install From GitHub
-
-将 `<owner>/<repo>` 替换为你的实际仓库：
 
 ```bash
 bun add -g github:<owner>/<repo>
 ```
 
-安装后检查：
+安装后：
 
 ```bash
 which abc
 abc
 ```
-
-## Ghostty / zsh PATH
-
-如果 `which abc` 找不到命令，把 Bun 全局 bin 加入 PATH：
-
-```bash
-export PATH="$HOME/.bun/bin:$PATH"
-```
-
-持久化到 `~/.zshrc`：
-
-```bash
-echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-## Upgrade
-
-重复安装命令即可覆盖升级：
-
-```bash
-bun add -g github:<owner>/<repo>
-```
-
-## Uninstall
-
-```bash
-bun remove -g abc-cli
-```
-
-## UX Notes
-
-- 启动时固定显示 Greeting Banner（非阻塞）。
-- 默认命令名为 `abc`。
-- 当前 CLI 模式是 `Interaction Surface + Read-only Observation`：
-  - 输入仅用于提交 `Business Contract`
-  - 执行中仅观察，不提供执行控制
-
-## Business Contract Input
-
-支持两种输入方式：
-
-1. 纯文本（作为 objective）：
-
-```text
-Summarize last deployment logs.
-```
-
-2. 显式字段：
-
-```text
-objective: summarize deployment logs
-context_refs: ref://deploy/logs,ref://release/2026-02-12
-constraints: read_only,no_destructive
-execution_strategy: once
-```
-
-`execution_strategy` 可选值：
-- `once`
-- `max_runs:3`
-- `cron:0 */2 * * *`
-- `until_condition:...`
-
-## Observation Demo
-
-Mock provider 支持用 objective 标记终态：
-- 包含 `[fail]` 会进入 `FAILED`
-- 包含 `[cancel]` 会进入 `CANCELLED`

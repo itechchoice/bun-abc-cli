@@ -1,6 +1,8 @@
 import { parseArgsStringToArgv } from "string-argv";
 import yargsParser from "yargs-parser";
-import type { ParsedShellInput } from "./types";
+import type { ParsedShellInput, SlashCommandName } from "./types";
+
+const SLASH_COMMANDS: ReadonlySet<SlashCommandName> = new Set(["login", "logout", "mcp", "exit"]);
 
 function toOptionRecord(input: ReturnType<typeof yargsParser>): Record<string, string | boolean | string[]> {
   const entries = Object.entries(input).filter(([key]) => key !== "_" && key !== "$0");
@@ -13,8 +15,12 @@ function tokenize(raw: string): string[] {
 
 function parseManualCommand(raw: string): ParsedShellInput {
   const tokens = tokenize(raw.trim());
+  if (tokens.length === 0) {
+    return { kind: "text", raw };
+  }
+
   const group = tokens[0];
-  if (group !== "mcp" && group !== "run") {
+  if (group !== "mcp" && group !== "session" && group !== "run") {
     return { kind: "text", raw };
   }
 
@@ -31,30 +37,63 @@ function parseManualCommand(raw: string): ParsedShellInput {
 
   const positionals = parsed._.map((item: unknown) => String(item));
   const command = positionals[0];
-  const restPositionals = positionals.slice(1);
   const options = toOptionRecord(parsed);
 
-  if (group === "mcp" && (command === "add" || command === "list" || command === "get")) {
-    return {
-      kind: "command",
-      raw,
-      group: "mcp",
-      command,
-      positionals: restPositionals,
-      options,
-    };
+  if (!command) {
+    return { kind: "text", raw };
   }
 
-  if (
-    group === "run"
-    && (command === "submit" || command === "status" || command === "events" || command === "artifacts" || command === "result")
-  ) {
+  if (group === "mcp") {
+    if (command === "add" || command === "list" || command === "get" || command === "update" || command === "delete" || command === "sync" || command === "capabilities") {
+      return {
+        kind: "command",
+        raw,
+        group,
+        command,
+        positionals: positionals.slice(1),
+        options,
+      };
+    }
+
+    if (command === "auth") {
+      const subcommand = positionals[1];
+      if (subcommand === "start" || subcommand === "status" || subcommand === "delete") {
+        return {
+          kind: "command",
+          raw,
+          group,
+          command,
+          subcommand,
+          positionals: positionals.slice(2),
+          options,
+        };
+      }
+    }
+
+    return { kind: "text", raw };
+  }
+
+  if (group === "session") {
+    if (command === "create" || command === "list" || command === "get") {
+      return {
+        kind: "command",
+        raw,
+        group,
+        command,
+        positionals: positionals.slice(1),
+        options,
+      };
+    }
+    return { kind: "text", raw };
+  }
+
+  if (command === "submit" || command === "status" || command === "events" || command === "artifacts" || command === "cancel") {
     return {
       kind: "command",
       raw,
-      group: "run",
+      group,
       command,
-      positionals: restPositionals,
+      positionals: positionals.slice(1),
       options,
     };
   }
@@ -69,8 +108,8 @@ export function parseShellInput(raw: string): ParsedShellInput {
   }
 
   if (trimmed.startsWith("/")) {
-    const name = trimmed.slice(1).trim().split(/\s+/)[0];
-    if (name === "login" || name === "logout" || name === "whoami" || name === "mcp" || name === "exit") {
+    const name = trimmed.slice(1).trim().split(/\s+/)[0] as SlashCommandName;
+    if (SLASH_COMMANDS.has(name)) {
       return { kind: "slash", raw, name };
     }
     return { kind: "text", raw };

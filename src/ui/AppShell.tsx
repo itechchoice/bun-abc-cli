@@ -1,80 +1,75 @@
-import type { ProviderClient } from "../adapters/provider/types";
-import type { ToolRegistry } from "../adapters/tools/types";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRenderer } from "@opentui/react";
-import { useCanSubmit, useErrorSummary } from "../hooks/use-app-state";
-import { useIntentController } from "../hooks/use-intent-controller";
+import type { PlatformApiClient } from "../adapters/platform-api/client";
 import { useShellCommandController } from "../hooks/use-shell-command-controller";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import type { ConfigService } from "../services/config-service";
-import type { SessionService } from "../services/session-service";
 import { InputPane } from "./InputPane";
 import { MessagePane } from "./MessagePane";
 import { StatusBar } from "./StatusBar";
 
 interface AppShellProps {
-  providerClient: ProviderClient;
-  toolRegistry: ToolRegistry;
+  apiClient: PlatformApiClient;
   configService: ConfigService;
-  sessionService: SessionService;
 }
 
-export function AppShell({ providerClient, toolRegistry, configService, sessionService }: AppShellProps) {
+export function AppShell({ apiClient, configService }: AppShellProps) {
   const renderer = useRenderer();
+  const [draft, setDraft] = useState("");
+
   const exitShell = () => {
     renderer.destroy();
     setTimeout(() => {
       process.exit(0);
     }, 0);
   };
-  const runtimeConfig = configService.getRuntimeConfig();
-  const canSubmit = useCanSubmit();
-  const errorSummary = useErrorSummary();
 
-  const { state, setDraft, submit, clearError, resetSession } = useIntentController({
-    providerClient,
-    sessionService,
-  });
+  const runtimeConfig = configService.getRuntimeConfig();
+
   const shell = useShellCommandController({
-    providerClient,
-    sessionId: state.sessionId,
-    submitIntent: submit,
+    apiClient,
     onExit: exitShell,
   });
+
   const slashSuggestions = useMemo(() => {
-    const query = state.draft.trim().toLowerCase();
+    const query = draft.trim().toLowerCase();
     if (!query.startsWith("/")) {
       return [];
     }
+
     const options = [
       { command: "/login", description: "interactive login" },
-      { command: "/whoami", description: "show current identity" },
-      { command: "/logout", description: "clear local token" },
       { command: "/mcp", description: "list MCP servers" },
+      { command: "/logout", description: "clear local token" },
       { command: "/exit", description: "exit abc-cli shell" },
     ];
+
     return options.filter((item) => item.command.startsWith(query) || query === "/");
-  }, [state.draft]);
+  }, [draft]);
 
   useShortcuts({
-    onResetSession: resetSession,
-    onClearError: clearError,
     onExit: exitShell,
+    onClearInput: () => setDraft(""),
   });
 
   return (
-    <box flexDirection="column" width="100%" height="100%" paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
+    <box
+      flexDirection="column"
+      width="100%"
+      height="100%"
+      paddingLeft={1}
+      paddingRight={1}
+      paddingTop={1}
+      paddingBottom={1}
+      gap={1}
+    >
       <box flexGrow={1} minHeight={0}>
-        <MessagePane viewModel={state.viewModel} surfacePhase={state.surfacePhase} shellLogs={shell.logs} />
+        <MessagePane shellLogs={shell.logs} />
       </box>
 
       <box flexDirection="column" flexShrink={0} gap={0}>
         <InputPane
-          draft={state.draft}
-          status={state.status}
-          surfacePhase={state.surfacePhase}
-          canSubmit={canSubmit}
-          commandMode
+          draft={draft}
           shellHint={shell.loginHint}
           passwordMode={shell.isPasswordInput}
           slashSuggestions={slashSuggestions}
@@ -82,14 +77,10 @@ export function AppShell({ providerClient, toolRegistry, configService, sessionS
           onSubmit={shell.submitInput}
         />
         <StatusBar
-          status={state.status}
-          surfacePhase={state.surfacePhase}
-          sessionId={state.sessionId}
-          providerName={runtimeConfig.provider}
-          toolsLabel={toolRegistry.label}
-          activeExecutionId={state.activeExecutionId}
-          errorSummary={errorSummary}
-          reconnecting={state.viewModel.reconnecting}
+          apiLabel={runtimeConfig.provider}
+          authOn={Boolean(shell.authState.token)}
+          activeSessionId={shell.activeSessionId}
+          streamState={shell.streamState}
         />
       </box>
     </box>

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { parseShellInput, readStringOption } from "./parser";
 
 describe("parseShellInput", () => {
-  test("parses slash command", () => {
+  test("parses supported slash command", () => {
     const parsed = parseShellInput("/login");
     expect(parsed.kind).toBe("slash");
     if (parsed.kind === "slash") {
@@ -10,31 +10,39 @@ describe("parseShellInput", () => {
     }
   });
 
-  test("parses exit slash command", () => {
-    const parsed = parseShellInput("/exit");
-    expect(parsed.kind).toBe("slash");
-    if (parsed.kind === "slash") {
-      expect(parsed.name).toBe("exit");
-    }
+  test("rejects removed slash command /whoami", () => {
+    const parsed = parseShellInput("/whoami");
+    expect(parsed.kind).toBe("text");
   });
 
-  test("parses manual mcp add", () => {
-    const parsed = parseShellInput("mcp add --server-code weather_mcp --url http://127.0.0.1:9001 --version v0");
+  test("parses mcp auth start", () => {
+    const parsed = parseShellInput("mcp auth start --id 12 --return-url https://example.com");
     expect(parsed.kind).toBe("command");
     if (parsed.kind === "command") {
       expect(parsed.group).toBe("mcp");
-      expect(parsed.command).toBe("add");
-      expect(readStringOption(parsed.options, "server-code")).toBe("weather_mcp");
-      expect(readStringOption(parsed.options, "version")).toBe("v0");
+      expect(parsed.command).toBe("auth");
+      expect(parsed.subcommand).toBe("start");
+      expect(readStringOption(parsed.options, "id")).toBe("12");
     }
   });
 
-  test("parses run events --follow <id>", () => {
-    const parsed = parseShellInput("run events --follow exec-123");
+  test("parses session list", () => {
+    const parsed = parseShellInput("session list --page 1 --size 20");
     expect(parsed.kind).toBe("command");
-    if (parsed.kind === "command" && parsed.group === "run") {
-      expect(parsed.command).toBe("events");
-      expect(readStringOption(parsed.options, "follow")).toBe("exec-123");
+    if (parsed.kind === "command") {
+      expect(parsed.group).toBe("session");
+      expect(parsed.command).toBe("list");
+      expect(readStringOption(parsed.options, "page")).toBe("1");
+    }
+  });
+
+  test("parses run cancel", () => {
+    const parsed = parseShellInput("run cancel 2001");
+    expect(parsed.kind).toBe("command");
+    if (parsed.kind === "command") {
+      expect(parsed.group).toBe("run");
+      expect(parsed.command).toBe("cancel");
+      expect(parsed.positionals[0]).toBe("2001");
     }
   });
 

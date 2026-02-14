@@ -1,33 +1,21 @@
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
-import { MockProviderClient } from "./adapters/provider/mock-provider";
-import { MockToolRegistry } from "./adapters/tools/mock-tools";
+import { PlatformApiClient } from "./adapters/platform-api/client";
 import { createMemoryConfigService } from "./services/memory-config-service";
-import { createMemorySessionService } from "./services/memory-session-service";
-import { AppStateProvider } from "./state/context";
 import { AppShell } from "./ui/AppShell";
 
-const sessionService = createMemorySessionService();
 const configService = createMemoryConfigService();
-const providerClient = new MockProviderClient();
-const toolRegistry = new MockToolRegistry();
+const runtimeConfig = configService.getRuntimeConfig();
+const apiClient = new PlatformApiClient(runtimeConfig.apiBaseUrl);
 
 function App() {
-  return (
-    <AppStateProvider sessionService={sessionService}>
-      <AppShell
-        providerClient={providerClient}
-        toolRegistry={toolRegistry}
-        configService={configService}
-        sessionService={sessionService}
-      />
-    </AppStateProvider>
-  );
+  return <AppShell apiClient={apiClient} configService={configService} />;
 }
 
 const renderer = await createCliRenderer({
-  // Copy-friendly mode: keep terminal selection and scrollback behavior.
-  useMouse: false,
+  // Enable scroll interaction in scrollbox.
+  useMouse: true,
   useAlternateScreen: false,
 });
+
 createRoot(renderer).render(<App />);

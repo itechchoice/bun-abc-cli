@@ -4,69 +4,74 @@ abc
 
 # 注意
 
-- 以下命令需要像 codex-cli / gemini-cli 那种先进入 abc-cli 这个专用命令壳再输入子命令。
-- 快捷命令是先输入斜杠 `/` 然后出现可选命令列表，直接选择即可。
+- 仅支持交互壳模式，不保留一次性外层命令入口。
+- 斜杠命令可通过输入 `/` 后选择执行。
+- 普通文本不会再作为 intent 自动提交，必须使用明确命令。
 
-## 登录
+## Slash 命令
 
-- 快捷命令：
-  - /login # 交互式登录
-  - /whoami
-  - /logout
+- `/login`：交互式登录（用户名 + 密码）
+- `/mcp`：等价 `mcp list`
+- `/logout`：清理本地 token
+- `/exit`：退出 abc-cli
 
-### 登录持久化策略（已定）
+## 登录持久化策略
 
-- 仅持久化 token，不持久化用户名和密码。
-- 本地 token 文件路径：`~/.abc-cli/auth-token.json`
-- 启动 `abc` 后，若检测到本地 token：
-  - 自动调用 `whoami` 做有效性校验；
-  - 校验通过则恢复登录态；
-  - 校验失败则清除本地 token，并提示用户重新 `/login`。
-- 执行 `/logout` 时必须删除本地 token 文件（或清空 token 内容）。
-- 安全要求：
-  - 目录权限 `700`
-  - token 文件权限 `600`
+- 仅持久化 `access_token`，不持久化用户名与密码。
+- 本地路径：`~/.abc-cli/auth-token.json`
+- 启动时自动用受保护接口探活 token：
+  - 通过则恢复登录态
+  - 失败则清除 token 并提示重新 `/login`
+- `/logout` 必须删除本地 token。
+- 权限要求：目录 `700`，文件 `600`。
 
-## 注册 MCP Server + 查询确认
+## MCP 命令
 
-- 快捷命令：
-  - /mcp # 列出所有 MCP Server
+- `mcp add --server-code <code> --url <endpoint> --version <v> [--name <name>] [--description <text>] [--auth-type <NONE|API_KEY|BASIC|OAUTH2|JWT|CUSTOM>] [--auth-config-json <json>]`
+- `mcp list [--server-code <code>] [--status <active|inactive>]`
+- `mcp get <id>`
+- `mcp update --id <id> [--name <name>] [--description <text>] [--url <endpoint>] [--auth-type <...>] [--auth-config-json <json>]`
+- `mcp delete --id <id>`
+- `mcp sync --id <id>`
+- `mcp capabilities --id <id>`
+- `mcp auth start --id <id> [--connection-name <name>] [--return-url <url>] [--credentials-json <json>]`
+- `mcp auth status --id <id>`
+- `mcp auth delete --id <id> [--connection-id <id>]`
 
-- 手动命令：
-  - mcp add --server-code weather_mcp --url http://127.0.0.1:9001 --version v0
-  - mcp get weather_mcp
+默认值：
+- `name = server_code`
+- `auth_type = NONE`
+- `auth_config = {}`
 
-## 触发 run（意图→选工具→调用）
+## Session 命令
 
-### 提交
+- `session create [--title <text>]`
+- `session list [--status <active|archived>] [--page <n>] [--size <n>]`
+- `session get <session_id>`
 
-- 手动命令：
-  - run submit --objective "查 San Francisco 三日天气"
+## Run 命令
 
-### 记录 execution_id（手动复制）
+- `run submit --objective <text> [--session-id <id>]`
+- `run status <task_id>`
+- `run events --follow <task_id>`
+- `run artifacts <task_id>`
+- `run cancel <task_id>`
 
-- 说明：
-  - `run submit ...` 执行后，界面会显示 `execution_id=...`
-  - 用户手动复制该 ID，后续命令直接粘贴使用
-  - 本轮不做壳内变量（不支持 `$ID` 自动替换）
+## 输出规范（强约束）
 
-### 立即查一次状态（证明可查）
+每次 HTTP 调用都输出：
+1. `> METHOD /path`
+2. `< STATUS <code>`
+3. 返回体 JSON（pretty print）
 
-- 手动命令：
-  - run status <execution_id>
+- 4xx/5xx 同样完整输出 JSON。
+- 非 JSON 返回体回退为：`{"raw_text":"...","content_type":"..."}`。
+- SSE 逐条输出：`{"event":"...","data":{...}}`。
 
-### 跟随事件流（全程可见）
+## SSE 跟随语义
 
-- 手动命令：
-  - run events --follow <execution_id>
-
-### 结束后再查状态（证明最终一致）
-
-- 手动命令：
-  - run status <execution_id>
-
-### 查最终结果/产物（证明 tool 调用有结果）
-
-- 手动命令：
-  - run artifacts <execution_id>
-  - run result <execution_id> # 或（可选）
+- `run events --follow <task_id>` 建立 SSE。
+- 收到 `task.completed`、`task.failed`、`task.cancelled` 立即结束。
+- 连接异常触发重连：`1s -> 2s -> 4s -> 8s`（上限 8s）。
+- 每次重连前先调用 `GET /tasks/{task_id}` 并输出其 JSON。
+- 若任务已终态则停止重连。

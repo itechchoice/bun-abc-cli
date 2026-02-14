@@ -13,14 +13,19 @@ export interface AuthSessionState {
   loginAt: number | null;
 }
 
-export interface McpServerState {
-  serverCode: string;
-  url: string;
-  version: string;
-  updatedAt: number;
-}
-
 export type LoginStep = "idle" | "await_username" | "await_password";
+
+export type SlashCommandName = "login" | "logout" | "mcp" | "exit";
+
+export interface ParsedCommandInput {
+  kind: "command";
+  raw: string;
+  group: "mcp" | "session" | "run";
+  command: string;
+  subcommand?: string;
+  positionals: string[];
+  options: Record<string, string | boolean | string[]>;
+}
 
 export type ParsedShellInput =
   | {
@@ -30,21 +35,6 @@ export type ParsedShellInput =
   | {
     kind: "slash";
     raw: string;
-    name: "login" | "logout" | "whoami" | "mcp" | "exit";
+    name: SlashCommandName;
   }
-  | {
-    kind: "command";
-    raw: string;
-    group: "mcp";
-    command: "add" | "list" | "get";
-    positionals: string[];
-    options: Record<string, string | boolean | string[]>;
-  }
-  | {
-    kind: "command";
-    raw: string;
-    group: "run";
-    command: "submit" | "status" | "events" | "artifacts" | "result";
-    positionals: string[];
-    options: Record<string, string | boolean | string[]>;
-  };
+  | ParsedCommandInput;

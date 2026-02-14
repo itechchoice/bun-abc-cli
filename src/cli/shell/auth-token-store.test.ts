@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { clearAuthToken, loadAuthToken, saveAuthToken } from "./auth-token-store";
@@ -37,5 +37,20 @@ describe("auth-token-store", () => {
     expect(token).toBeNull();
     const tokenPath = path.join(dir, "auth-token.json");
     await expect(readFile(tokenPath, "utf8")).rejects.toBeDefined();
+  });
+
+  test("applies secure permissions for store dir and token file", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const dir = await withTempStoreHome();
+    await saveAuthToken("mock-token-demo");
+
+    const dirStat = await stat(dir);
+    const fileStat = await stat(path.join(dir, "auth-token.json"));
+
+    expect(dirStat.mode & 0o777).toBe(0o700);
+    expect(fileStat.mode & 0o777).toBe(0o600);
   });
 });

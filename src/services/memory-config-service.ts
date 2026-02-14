@@ -1,13 +1,14 @@
 import type { ConfigService, RuntimeConfig } from "./config-service";
 
-const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
-  provider: "contract-mock",
-};
+const DEFAULT_BASE_URL = "https://dychoice.stg.alphabitcore.io/api/v1";
 
 export function createMemoryConfigService(): ConfigService {
   return {
-    getRuntimeConfig() {
-      return { ...DEFAULT_RUNTIME_CONFIG };
+    getRuntimeConfig(): RuntimeConfig {
+      return {
+        provider: "platform",
+        apiBaseUrl: process.env.ABC_API_BASE_URL?.trim() || DEFAULT_BASE_URL,
+      };
     },
   };
 }
