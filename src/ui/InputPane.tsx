@@ -18,6 +18,7 @@ interface InputPaneProps {
   palette: ThemePalette;
   shellHint?: string | null;
   passwordMode?: boolean;
+  historyBrowsing?: boolean;
   activeThemeName: ThemeName;
   themePickerOpen?: boolean;
   themeOptions?: ThemeOption[];
@@ -42,6 +43,7 @@ export function InputPane({
   palette,
   shellHint = null,
   passwordMode = false,
+  historyBrowsing = false,
   activeThemeName,
   themePickerOpen = false,
   themeOptions = [],
@@ -56,7 +58,7 @@ export function InputPane({
   const inputRef = useRef<InputRenderable | null>(null);
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
   const [selectedThemeIndex, setSelectedThemeIndex] = useState(0);
-  const showSlashMenu = !passwordMode && draft.trim().startsWith("/") && slashSuggestions.length > 0;
+  const showSlashMenu = !passwordMode && !historyBrowsing && draft.trim().startsWith("/") && slashSuggestions.length > 0;
   const showThemeMenu = !passwordMode && themePickerOpen && themeOptions.length > 0;
 
   const focusInput = () => {
@@ -192,6 +194,8 @@ export function InputPane({
         <text fg={palette.textMuted} attributes={TextAttributes.DIM}>
           {showThemeMenu
             ? "Use Up/Down to choose theme, Enter to apply, Esc to close"
+            : historyBrowsing
+            ? "History browsing: Up/Down to navigate, Enter to run"
             : showSlashMenu
             ? "Use Up/Down to choose slash command, Enter to run"
             : "Enter to run command"}

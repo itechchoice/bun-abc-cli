@@ -206,6 +206,10 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     });
   }, []);
 
+  const appendClientLog = useCallback((level: ShellLogLevel, text: string) => {
+    appendLog(level, text);
+  }, [appendLog]);
+
   const appendJsonBlock = useCallback((level: ShellLogLevel, value: unknown) => {
     const pretty = JSON.stringify(value ?? null, null, 2);
     appendLog(level, pretty);
@@ -899,6 +903,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     activeSessionId,
     streamState,
     activeCommandLabel,
+    appendClientLog,
     isThemePickerOpen,
     applyThemeFromPicker,
     closeThemePicker,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRenderer } from "@opentui/react";
 import type { PlatformApiClient } from "../adapters/platform-api/client";
 import { useShellCommandController } from "../hooks/use-shell-command-controller";
@@ -14,6 +14,7 @@ import {
   pushCommandHistory,
 } from "./command-history";
 import { useTheme } from "../theme/context";
+import { copyToClipboard } from "./clipboard";
 
 interface AppShellProps {
   apiClient: PlatformApiClient;
@@ -24,6 +25,16 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
   const renderer = useRenderer();
   const [draft, setDraft] = useState("");
   const [historyState, setHistoryState] = useState(createCommandHistoryState);
+  const draftRef = useRef(draft);
+  const historyStateRef = useRef(historyState);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    historyStateRef.current = historyState;
+  }, [historyState]);
 
   const exitShell = () => {
     renderer.destroy();
@@ -65,23 +76,25 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
     onClearInput: () => setDraft(""),
   });
 
-  const handleHistoryPrev = () => {
-    const result = browseCommandHistoryPrev(historyState, draft);
+  const handleHistoryPrev = useCallback(() => {
+    const result = browseCommandHistoryPrev(historyStateRef.current, draftRef.current);
+    historyStateRef.current = result.state;
     setHistoryState(result.state);
     return result.nextDraft;
-  };
+  }, []);
 
-  const handleHistoryNext = () => {
-    const result = browseCommandHistoryNext(historyState);
+  const handleHistoryNext = useCallback(() => {
+    const result = browseCommandHistoryNext(historyStateRef.current);
+    historyStateRef.current = result.state;
     setHistoryState(result.state);
     return result.nextDraft;
-  };
+  }, []);
 
   const handleSubmit = async (value?: string) => {
     const raw = value ?? draft;
     const trimmed = raw.trim();
     await shell.submitInput(raw);
-    if (trimmed !== "") {
+    if (trimmed !== "" && !shell.isAwaitingLoginInput) {
       setHistoryState((prev) => pushCommandHistory(prev, trimmed));
     } else {
       setHistoryState((prev) => ({
@@ -91,6 +104,25 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
       }));
     }
   };
+
+  useEffect(() => {
+    const onSelection = (selection: { getSelectedText: () => string }) => {
+      const selectedText = selection.getSelectedText?.() ?? "";
+      if (!selectedText.trim()) {
+        return;
+      }
+      void copyToClipboard(selectedText).then((copied) => {
+        if (!copied) {
+          shell.appendClientLog("error", "Selection captured but clipboard copy failed.");
+        }
+      });
+    };
+
+    renderer.on("selection", onSelection);
+    return () => {
+      renderer.off("selection", onSelection);
+    };
+  }, [renderer, shell.appendClientLog]);
 
   return (
     <box
@@ -114,6 +146,7 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
           palette={palette}
           shellHint={shell.loginHint}
           passwordMode={shell.isPasswordInput}
+          historyBrowsing={historyState.index !== null}
           activeThemeName={themeName}
           themePickerOpen={shell.isThemePickerOpen}
           themeOptions={[

@@ -24,9 +24,9 @@ export function MessagePane({ shellLogs, palette, themeName }: MessagePaneProps)
 
     return (
       <box key={entry.id} flexDirection="column">
-        <text fg={color}>{`${timestamp}${lines[0] ?? ""}`}</text>
+        <text selectable fg={color}>{`${timestamp}${lines[0] ?? ""}`}</text>
         {lines.slice(1).map((line, index) => (
-          <text key={`${entry.id}-line-${index}`} fg={color}>{line}</text>
+          <text key={`${entry.id}-line-${index}`} selectable fg={color}>{line}</text>
         ))}
       </box>
     );
@@ -34,7 +34,7 @@ export function MessagePane({ shellLogs, palette, themeName }: MessagePaneProps)
 
   const renderShellLogLines = () => {
     if (shellLogs.length === 0) {
-      return <text attributes={TextAttributes.DIM}>No command output yet.</text>;
+      return <text selectable attributes={TextAttributes.DIM}>No command output yet.</text>;
     }
 
     return shellLogs.map((entry) => renderLogEntry(entry));
@@ -45,10 +45,10 @@ export function MessagePane({ shellLogs, palette, themeName }: MessagePaneProps)
       <scrollbox flexGrow={1} scrollY stickyScroll stickyStart="bottom">
         <box flexDirection="column" gap={1}>
           <GreetingBanner themeName={themeName} />
-          <text fg={palette.textMuted} attributes={TextAttributes.DIM}>Interactive shell mode. API-first, no local mock runtime.</text>
-          <text fg={palette.textMuted} attributes={TextAttributes.DIM}>Commands: /login, /mcp, /logout, /exit, theme/mcp/session/run ...</text>
+          <text selectable fg={palette.textMuted} attributes={TextAttributes.DIM}>Interactive shell mode. API-first, no local mock runtime.</text>
+          <text selectable fg={palette.textMuted} attributes={TextAttributes.DIM}>Commands: /login, /mcp, /theme, /logout, /exit, theme/mcp/session/run ...</text>
           <box flexDirection="column" gap={1}>
-            <text fg={palette.accentInfo}>Command Log</text>
+            <text selectable fg={palette.accentInfo}>Command Log</text>
             {renderShellLogLines()}
           </box>
         </box>

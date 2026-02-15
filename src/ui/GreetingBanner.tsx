@@ -53,12 +53,12 @@ export function GreetingBanner({ themeName }: GreetingBannerProps) {
     >
       <box flexDirection="column">
         {ART_LINES.map((line, i) => (
-          <text key={i} fg={gradientColors[i]}>
+          <text key={i} selectable fg={gradientColors[i]}>
             {line}
           </text>
         ))}
       </box>
-      <text attributes={TextAttributes.DIM}>
+      <text selectable attributes={TextAttributes.DIM}>
         abc-cli preview | Powered by Alphabitcore
       </text>
     </box>
