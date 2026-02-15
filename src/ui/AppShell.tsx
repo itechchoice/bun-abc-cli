@@ -136,6 +136,7 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
           activeSessionId={shell.activeSessionId}
           streamState={shell.streamState}
           historyCount={historyState.entries.length}
+          activeCommandLabel={shell.activeCommandLabel}
         />
       </box>
     </box>

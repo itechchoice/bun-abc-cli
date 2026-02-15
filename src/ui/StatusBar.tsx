@@ -8,9 +8,20 @@ interface StatusBarProps {
   activeSessionId: number | null;
   streamState: "ok" | "retry";
   historyCount: number;
+  activeCommandLabel: string | null;
 }
 
-export function StatusBar({ apiLabel, themeName, palette, authOn, activeSessionId, streamState, historyCount }: StatusBarProps) {
+export function StatusBar({
+  apiLabel,
+  themeName,
+  palette,
+  authOn,
+  activeSessionId,
+  streamState,
+  historyCount,
+  activeCommandLabel,
+}: StatusBarProps) {
+  const busyLabel = activeCommandLabel ? `busy:${activeCommandLabel}` : "busy:-";
   return (
     <box
       flexDirection="row"
@@ -22,7 +33,7 @@ export function StatusBar({ apiLabel, themeName, palette, authOn, activeSessionI
     >
       <text fg={palette.accentInfo}>{`api:${apiLabel}`}</text>
       <text fg={authOn ? palette.accentSuccess : palette.accentError}>{`auth:${authOn ? "on" : "off"}`}</text>
-      <text fg={palette.accentBrand}>{`theme:${themeName} | session:${activeSessionId ?? "-"} | stream:${streamState} | history:${historyCount}`}</text>
+      <text fg={palette.accentBrand}>{`theme:${themeName} | session:${activeSessionId ?? "-"} | stream:${streamState} | history:${historyCount} | ${busyLabel}`}</text>
     </box>
   );
 }

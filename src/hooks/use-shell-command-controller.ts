@@ -22,6 +22,7 @@ const MAX_LOG_ENTRIES = 400;
 const TERMINAL_TASK_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
 const TERMINAL_TASK_EVENTS = new Set(["task.completed", "task.failed", "task.cancelled"]);
 const AUTH_TYPES = new Set(["NONE", "API_KEY", "BASIC", "OAUTH2", "JWT", "CUSTOM"]);
+const RETRIABLE_HTTP_STATUSES = new Set([408, 425, 429]);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -164,6 +165,10 @@ function parseFollowOption(options: Record<string, string | boolean | string[]>)
   return { follow, impliedTaskId };
 }
 
+function isRetriableHttpStatus(status: number): boolean {
+  return status >= 500 || RETRIABLE_HTTP_STATUSES.has(status);
+}
+
 export function useShellCommandController(options: UseShellCommandControllerOptions) {
   const [logs, setLogs] = useState<ShellLogEntry[]>([]);
   const [authState, setAuthState] = useState<AuthSessionState>({
@@ -175,9 +180,13 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   const [streamState, setStreamState] = useState<StreamState>("ok");
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
+  const [activeCommandLabel, setActiveCommandLabel] = useState<string | null>(null);
 
   const loginDraftRef = useRef<{ username: string | null }>({ username: null });
   const inFlightRef = useRef(false);
+  const runningCommandRef = useRef<string | null>(null);
+  const followCommandLabelRef = useRef<string | null>(null);
+  const followAbortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
   const themeWarningLoggedRef = useRef(false);
 
@@ -256,6 +265,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     return () => {
       stoppedRef.current = true;
+      followAbortRef.current?.abort();
+      followAbortRef.current = null;
     };
   }, [appendLog, clearAuthState, handleUnauthorized, options.apiClient, printApiResponse]);
 
@@ -532,12 +543,12 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     throw new Error("Unsupported session command.");
   }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse]);
 
-  const executeRunEventsFollow = useCallback(async (token: string, taskId: number) => {
+  const executeRunEventsFollow = useCallback(async (token: string, taskId: number, controller: AbortController) => {
+    const { signal } = controller;
     setStreamState("ok");
     let backoffMs = 1000;
 
-    while (!stoppedRef.current) {
-      const controller = new AbortController();
+    while (!stoppedRef.current && !signal.aborted) {
       let terminalEventReached = false;
 
       try {
@@ -545,7 +556,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
           baseUrl: options.apiClient.baseUrl,
           token,
           taskId,
-          signal: controller.signal,
+          signal,
           onOpen: (response) => {
             printApiResponse(response);
             setStreamState("ok");
@@ -572,11 +583,25 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
             setStreamState("retry");
             return;
           }
+          if (!isRetriableHttpStatus(error.response.status)) {
+            appendLog("error", `SSE follow stopped due to non-retriable status ${error.response.status}.`);
+            setStreamState("ok");
+            return;
+          }
         } else if (error instanceof Error && error.name === "AbortError") {
-          // user exit or explicit stop.
+          if (terminalEventReached) {
+            appendLog("success", "SSE reached terminal event. Follow ended.");
+          }
+          setStreamState("ok");
+          return;
         } else {
           appendLog("error", `SSE connection error: ${error instanceof Error ? error.message : String(error)}`);
         }
+      }
+
+      if (signal.aborted) {
+        setStreamState("ok");
+        return;
       }
 
       const probe = await options.apiClient.getTask(token, taskId);
@@ -592,6 +617,11 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         setStreamState("ok");
         return;
       }
+      if (!probe.ok && !isRetriableHttpStatus(probe.status)) {
+        appendLog("error", `SSE follow stopped due to non-retriable status ${probe.status}.`);
+        setStreamState("ok");
+        return;
+      }
 
       setStreamState("retry");
       appendLog("info", `SSE disconnected. Reconnecting in ${backoffMs / 1000}s...`);
@@ -599,6 +629,35 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       backoffMs = Math.min(backoffMs * 2, 8000);
     }
   }, [appendLog, handleUnauthorized, options.apiClient, printApiResponse]);
+
+  const startBackgroundFollow = useCallback((token: string, taskId: number) => {
+    const label = `run events --follow ${taskId}`;
+
+    if (followAbortRef.current) {
+      const previous = followCommandLabelRef.current;
+      followAbortRef.current.abort();
+      followAbortRef.current = null;
+      if (previous) {
+        appendLog("info", `Stopped previous background stream: ${previous}`);
+      }
+    }
+
+    const controller = new AbortController();
+    followAbortRef.current = controller;
+    followCommandLabelRef.current = label;
+    setActiveCommandLabel(label);
+    appendLog("info", `Background stream started: ${label}`);
+
+    void executeRunEventsFollow(token, taskId, controller).finally(() => {
+      if (followAbortRef.current === controller) {
+        followAbortRef.current = null;
+      }
+      if (followCommandLabelRef.current === label) {
+        followCommandLabelRef.current = null;
+      }
+      setActiveCommandLabel((current) => (current === label ? null : current));
+    });
+  }, [appendLog, executeRunEventsFollow]);
 
   const executeRunCommand = useCallback(async (parsed: ParsedCommandInput) => {
     const token = ensureLoggedIn();
@@ -640,7 +699,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         throw new Error("run events requires --follow <task_id>.");
       }
       const taskId = resolveTaskId("events", parsed.positionals, parsed.options, impliedTaskId);
-      await executeRunEventsFollow(token, taskId);
+      startBackgroundFollow(token, taskId);
       return;
     }
 
@@ -661,7 +720,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     }
 
     throw new Error("Unsupported run command.");
-  }, [ensureLoggedIn, executeRunEventsFollow, handleUnauthorized, options.apiClient, printApiResponse]);
+  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, startBackgroundFollow]);
 
   const executeThemeCommand = useCallback(async (parsed: ParsedCommandInput) => {
     if (parsed.command === "list") {
@@ -773,7 +832,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     }
 
     if (inFlightRef.current) {
-      appendLog("error", "Another command is still running. Please wait.");
+      const running = runningCommandRef.current ?? "unknown";
+      appendLog("error", `Another command is still running: ${running}. Please wait.`);
       return;
     }
 
@@ -796,6 +856,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     }
 
     inFlightRef.current = true;
+    runningCommandRef.current = input;
+    setActiveCommandLabel(input);
     try {
       if (parsed.kind === "slash") {
         await handleSlashCommand(parsed);
@@ -822,6 +884,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       appendLog("error", error instanceof Error ? error.message : String(error));
     } finally {
       inFlightRef.current = false;
+      runningCommandRef.current = null;
+      setActiveCommandLabel(followCommandLabelRef.current);
     }
   }, [appendLog, consumeLoginStep, executeMcpCommand, executeRunCommand, executeSessionCommand, executeThemeCommand, handleSlashCommand, loginStep, options]);
 
@@ -834,6 +898,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     authState,
     activeSessionId,
     streamState,
+    activeCommandLabel,
     isThemePickerOpen,
     applyThemeFromPicker,
     closeThemePicker,
