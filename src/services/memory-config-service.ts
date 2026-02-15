@@ -1,6 +1,6 @@
 import type { ConfigService, RuntimeConfig } from "./config-service";
 
-const DEFAULT_BASE_URL = "https://dychoice.stg.alphabitcore.io/api/v1";
+const DEFAULT_BASE_URL = "https://arch.stg.alphabitcore.io/api/v1";
 
 export function createMemoryConfigService(): ConfigService {
   return {
