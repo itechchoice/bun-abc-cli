@@ -22,6 +22,11 @@
   - 支持 `theme list/current/set` 运行时切换
   - 主题选择持久化到 `~/.abc-cli/theme.json`
   - 状态栏显示当前主题 `theme:<name>`
+- 已完成 spinner 统一改造：
+  - 下线自研 `LoadingIndicator`
+  - 接入社区库 `opentui-spinner`
+  - 输入框左侧显示接口请求 spinner：`loading(n)`
+  - `n` 为全局请求并发计数（含前台请求与后台 SSE follow）
 - 已完成统一输出契约：
   - 每次 HTTP 请求打印 method/path/status
   - 成功与失败都打印返回体 JSON

@@ -144,6 +144,7 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
         <InputPane
           draft={draft}
           palette={palette}
+          pendingRequestCount={shell.pendingRequestCount}
           shellHint={shell.loginHint}
           passwordMode={shell.isPasswordInput}
           historyBrowsing={historyState.index !== null}

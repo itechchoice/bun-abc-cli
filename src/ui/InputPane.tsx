@@ -16,6 +16,7 @@ interface ThemeOption {
 interface InputPaneProps {
   draft: string;
   palette: ThemePalette;
+  pendingRequestCount: number;
   shellHint?: string | null;
   passwordMode?: boolean;
   historyBrowsing?: boolean;
@@ -41,6 +42,7 @@ function getPlaceholder(shellHint: string | null | undefined): string {
 export function InputPane({
   draft,
   palette,
+  pendingRequestCount,
   shellHint = null,
   passwordMode = false,
   historyBrowsing = false,
@@ -170,19 +172,29 @@ export function InputPane({
 
   return (
     <box flexDirection="column" gap={1} flexShrink={0}>
-      <box backgroundColor={palette.inputBg} paddingLeft={1} paddingRight={1}>
-        <input
-          ref={inputRef}
-          value={draft}
-          placeholder={getPlaceholder(shellHint)}
-          onInput={onInput}
-          onSubmit={handleSubmit}
-          focused
-          textColor={passwordMode ? palette.inputBg : palette.textPrimary}
-          focusedTextColor={passwordMode ? palette.inputBg : palette.textPrimary}
-          cursorColor={passwordMode ? palette.mask : palette.cursor}
-          width="100%"
-        />
+      <box backgroundColor={palette.inputBg} paddingLeft={1} paddingRight={1} flexDirection="row" alignItems="center" gap={1}>
+        {pendingRequestCount > 0 ? (
+          <box flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
+            <spinner name="dots" color={palette.accentWarning} />
+            <text fg={palette.accentWarning}>{`loading(${pendingRequestCount})`}</text>
+          </box>
+        ) : null}
+
+        <box flexGrow={1} minWidth={0}>
+          <input
+            ref={inputRef}
+            value={draft}
+            placeholder={getPlaceholder(shellHint)}
+            onInput={onInput}
+            onSubmit={handleSubmit}
+            focused
+            textColor={passwordMode ? palette.inputBg : palette.textPrimary}
+            focusedTextColor={passwordMode ? palette.inputBg : palette.textPrimary}
+            cursorColor={passwordMode ? palette.mask : palette.cursor}
+            width="100%"
+          />
+        </box>
+
         {passwordMode && draft.length > 0 ? (
           <box position="absolute" top={0} left={1}>
             <text fg={palette.textPrimary}>{`${"*".repeat(draft.length)}`}</text>

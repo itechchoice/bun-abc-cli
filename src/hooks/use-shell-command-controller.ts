@@ -181,6 +181,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
   const [activeCommandLabel, setActiveCommandLabel] = useState<string | null>(null);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
   const loginDraftRef = useRef<{ username: string | null }>({ username: null });
   const inFlightRef = useRef(false);
@@ -215,6 +216,23 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     appendLog(level, pretty);
   }, [appendLog]);
 
+  const beginRequest = useCallback(() => {
+    setPendingRequestCount((prev) => prev + 1);
+  }, []);
+
+  const endRequest = useCallback(() => {
+    setPendingRequestCount((prev) => (prev <= 0 ? 0 : prev - 1));
+  }, []);
+
+  const trackRequest = useCallback(async <T>(fn: () => Promise<T>): Promise<T> => {
+    beginRequest();
+    try {
+      return await fn();
+    } finally {
+      endRequest();
+    }
+  }, [beginRequest, endRequest]);
+
   const printApiResponse = useCallback((response: ApiResponse) => {
     appendLog("info", `> ${response.method} ${response.path}`);
     appendLog(response.ok ? "success" : "error", `< STATUS ${response.status}`);
@@ -244,7 +262,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
           return;
         }
 
-        const probe = await options.apiClient.listSessions(token, { page: 1, size: 1 });
+        const probe = await trackRequest(() => options.apiClient.listSessions(token, { page: 1, size: 1 }));
         printApiResponse(probe);
 
         if (!probe.ok) {
@@ -272,7 +290,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       followAbortRef.current?.abort();
       followAbortRef.current = null;
     };
-  }, [appendLog, clearAuthState, handleUnauthorized, options.apiClient, printApiResponse]);
+  }, [appendLog, clearAuthState, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
 
   useEffect(() => {
     if (!options.themeWarning || themeWarningLoggedRef.current) {
@@ -335,7 +353,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         return;
       }
 
-      const response = await options.apiClient.login({ username, password: value });
+      const response = await trackRequest(() => options.apiClient.login({ username, password: value }));
       printApiResponse(response);
 
       if (!response.ok) {
@@ -359,7 +377,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       loginDraftRef.current = { username: null };
       appendLog("success", `Login succeeded for '${username}'.`);
     }
-  }, [appendLog, handleUnauthorized, loginStep, options.apiClient, printApiResponse]);
+  }, [appendLog, handleUnauthorized, loginStep, options.apiClient, printApiResponse, trackRequest]);
 
   const executeMcpCommand = useCallback(async (parsed: ParsedCommandInput) => {
     const token = ensureLoggedIn();
@@ -377,7 +395,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         throw new Error("mcp add --auth-type must be one of NONE|API_KEY|BASIC|OAUTH2|JWT|CUSTOM.");
       }
 
-      const response = await options.apiClient.createMcp(token, {
+      const response = await trackRequest(() => options.apiClient.createMcp(token, {
         server_code: serverCode,
         version,
         name: readStringOption(parsed.options, "name") ?? serverCode,
@@ -385,17 +403,17 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         endpoint,
         auth_type: authTypeRaw as McpAuthType,
         auth_config: parseJsonOption(readStringOption(parsed.options, "auth-config-json"), "--auth-config-json") ?? {},
-      });
+      }));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
     }
 
     if (parsed.command === "list") {
-      const response = await options.apiClient.listMcp(token, {
+      const response = await trackRequest(() => options.apiClient.listMcp(token, {
         serverCode: readStringOption(parsed.options, "server-code"),
         status: readStringOption(parsed.options, "status"),
-      });
+      }));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -403,7 +421,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "get") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await options.apiClient.getMcp(token, id);
+      const response = await trackRequest(() => options.apiClient.getMcp(token, id));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -443,7 +461,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         throw new Error("mcp update requires at least one field to update.");
       }
 
-      const response = await options.apiClient.updateMcp(token, id, payload);
+      const response = await trackRequest(() => options.apiClient.updateMcp(token, id, payload));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -451,7 +469,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "delete") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await options.apiClient.deleteMcp(token, id);
+      const response = await trackRequest(() => options.apiClient.deleteMcp(token, id));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -459,7 +477,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "sync") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await options.apiClient.syncMcp(token, id);
+      const response = await trackRequest(() => options.apiClient.syncMcp(token, id));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -467,7 +485,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "capabilities") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await options.apiClient.listCapabilities(token, id);
+      const response = await trackRequest(() => options.apiClient.listCapabilities(token, id));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -476,18 +494,18 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     if (parsed.command === "auth") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
       if (parsed.subcommand === "start") {
-        const response = await options.apiClient.startMcpAuth(token, id, {
+        const response = await trackRequest(() => options.apiClient.startMcpAuth(token, id, {
           connectionName: readStringOption(parsed.options, "connection-name"),
           returnUrl: readStringOption(parsed.options, "return-url"),
           credentials: parseJsonOption(readStringOption(parsed.options, "credentials-json"), "--credentials-json"),
-        });
+        }));
         printApiResponse(response);
         await handleUnauthorized(response);
         return;
       }
 
       if (parsed.subcommand === "status") {
-        const response = await options.apiClient.getMcpAuthStatus(token, id);
+        const response = await trackRequest(() => options.apiClient.getMcpAuthStatus(token, id));
         printApiResponse(response);
         await handleUnauthorized(response);
         return;
@@ -496,7 +514,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       if (parsed.subcommand === "delete") {
         const connectionIdRaw = readStringOption(parsed.options, "connection-id");
         const connectionId = connectionIdRaw ? parsePositiveInt(connectionIdRaw, "connection_id") : undefined;
-        const response = await options.apiClient.deleteMcpAuth(token, id, connectionId);
+        const response = await trackRequest(() => options.apiClient.deleteMcpAuth(token, id, connectionId));
         printApiResponse(response);
         await handleUnauthorized(response);
         return;
@@ -504,13 +522,13 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     }
 
     throw new Error("Unsupported mcp command.");
-  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse]);
+  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
 
   const executeSessionCommand = useCallback(async (parsed: ParsedCommandInput) => {
     const token = ensureLoggedIn();
 
     if (parsed.command === "create") {
-      const response = await options.apiClient.createSession(token, readStringOption(parsed.options, "title"));
+      const response = await trackRequest(() => options.apiClient.createSession(token, readStringOption(parsed.options, "title")));
       printApiResponse(response);
       await handleUnauthorized(response);
       if (response.ok) {
@@ -523,11 +541,11 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     if (parsed.command === "list") {
       const pageRaw = readStringOption(parsed.options, "page");
       const sizeRaw = readStringOption(parsed.options, "size");
-      const response = await options.apiClient.listSessions(token, {
+      const response = await trackRequest(() => options.apiClient.listSessions(token, {
         status: readStringOption(parsed.options, "status"),
         page: pageRaw ? parsePositiveInt(pageRaw, "page") : undefined,
         size: sizeRaw ? parsePositiveInt(sizeRaw, "size") : undefined,
-      });
+      }));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -535,7 +553,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "get") {
       const sessionId = resolveNumericId("session_id", parsed.positionals, parsed.options, "session-id");
-      const response = await options.apiClient.getSession(token, sessionId);
+      const response = await trackRequest(() => options.apiClient.getSession(token, sessionId));
       printApiResponse(response);
       await handleUnauthorized(response);
       if (response.ok) {
@@ -545,7 +563,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     }
 
     throw new Error("Unsupported session command.");
-  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse]);
+  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
 
   const executeRunEventsFollow = useCallback(async (token: string, taskId: number, controller: AbortController) => {
     const { signal } = controller;
@@ -556,7 +574,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       let terminalEventReached = false;
 
       try {
-        await subscribeTaskEvents({
+        await trackRequest(() => subscribeTaskEvents({
           baseUrl: options.apiClient.baseUrl,
           token,
           taskId,
@@ -572,7 +590,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
               controller.abort();
             }
           },
-        });
+        }));
       } catch (error) {
         if (terminalEventReached) {
           appendLog("success", "SSE reached terminal event. Follow ended.");
@@ -608,7 +626,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         return;
       }
 
-      const probe = await options.apiClient.getTask(token, taskId);
+      const probe = await trackRequest(() => options.apiClient.getTask(token, taskId));
       printApiResponse(probe);
       await handleUnauthorized(probe);
       if (probe.status === 401) {
@@ -632,7 +650,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       await sleep(backoffMs);
       backoffMs = Math.min(backoffMs * 2, 8000);
     }
-  }, [appendLog, handleUnauthorized, options.apiClient, printApiResponse]);
+  }, [appendLog, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
 
   const startBackgroundFollow = useCallback((token: string, taskId: number) => {
     const label = `run events --follow ${taskId}`;
@@ -674,10 +692,10 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
       const sessionIdRaw = readStringOption(parsed.options, "session-id");
       const sessionId = sessionIdRaw ? parsePositiveInt(sessionIdRaw, "session_id") : undefined;
-      const response = await options.apiClient.createTask(token, {
+      const response = await trackRequest(() => options.apiClient.createTask(token, {
         message: objective,
         session_id: sessionId,
-      });
+      }));
       printApiResponse(response);
       await handleUnauthorized(response);
       if (response.ok) {
@@ -688,7 +706,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "status") {
       const taskId = resolveTaskId("status", parsed.positionals, parsed.options);
-      const response = await options.apiClient.getTask(token, taskId);
+      const response = await trackRequest(() => options.apiClient.getTask(token, taskId));
       printApiResponse(response);
       await handleUnauthorized(response);
       if (response.ok) {
@@ -709,7 +727,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "artifacts") {
       const taskId = resolveTaskId("artifacts", parsed.positionals, parsed.options);
-      const response = await options.apiClient.getTaskArtifacts(token, taskId);
+      const response = await trackRequest(() => options.apiClient.getTaskArtifacts(token, taskId));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
@@ -717,14 +735,14 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
     if (parsed.command === "cancel") {
       const taskId = resolveTaskId("cancel", parsed.positionals, parsed.options);
-      const response = await options.apiClient.cancelTask(token, taskId);
+      const response = await trackRequest(() => options.apiClient.cancelTask(token, taskId));
       printApiResponse(response);
       await handleUnauthorized(response);
       return;
     }
 
     throw new Error("Unsupported run command.");
-  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, startBackgroundFollow]);
+  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, startBackgroundFollow, trackRequest]);
 
   const executeThemeCommand = useCallback(async (parsed: ParsedCommandInput) => {
     if (parsed.command === "list") {
@@ -902,6 +920,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     authState,
     activeSessionId,
     streamState,
+    pendingRequestCount,
     activeCommandLabel,
     appendClientLog,
     isThemePickerOpen,

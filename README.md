@@ -89,6 +89,12 @@ SSE 事件流逐条输出：
 {"event":"task.created","data":{"task_id":20001,"status":"CREATED"}}
 ```
 
+## Spinner
+
+- 已使用 `opentui-spinner` 替换自研 loading 组件
+- 接口调用进行中会在输入框左侧显示 spinner：`loading(n)`
+- `n` 为全局并发请求计数（前台命令 + 后台 SSE follow 请求）
+
 ## Token Persistence
 
 - 仅持久化 `access_token`

@@ -1,5 +1,6 @@
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
+import "opentui-spinner/react";
 import { PlatformApiClient } from "./adapters/platform-api/client";
 import { createMemoryConfigService } from "./services/memory-config-service";
 import { ThemeProvider } from "./theme/context";
