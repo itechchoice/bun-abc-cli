@@ -5,9 +5,14 @@ import type { ApiResponse, McpAuthType } from "../adapters/platform-api/types";
 import { clearAuthToken, loadAuthToken, saveAuthToken } from "../cli/shell/auth-token-store";
 import { parseShellInput, readStringOption } from "../cli/shell/parser";
 import type { AuthSessionState, LoginStep, ParsedCommandInput, ParsedShellInput, ShellLogEntry, ShellLogLevel } from "../cli/shell/types";
+import { THEME_NAMES, isThemeName } from "../theme/themes";
+import type { ThemeName } from "../theme/types";
 
 interface UseShellCommandControllerOptions {
   apiClient: PlatformApiClient;
+  themeName: ThemeName;
+  themeWarning?: string | null;
+  setThemeName: (name: ThemeName) => Promise<void> | void;
   onExit?: () => void;
 }
 
@@ -169,10 +174,12 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   const [loginStep, setLoginStep] = useState<LoginStep>("idle");
   const [streamState, setStreamState] = useState<StreamState>("ok");
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
 
   const loginDraftRef = useRef<{ username: string | null }>({ username: null });
   const inFlightRef = useRef(false);
   const stoppedRef = useRef(false);
+  const themeWarningLoggedRef = useRef(false);
 
   const appendLog = useCallback((level: ShellLogLevel, text: string) => {
     setLogs((prev) => {
@@ -251,6 +258,14 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       stoppedRef.current = true;
     };
   }, [appendLog, clearAuthState, handleUnauthorized, options.apiClient, printApiResponse]);
+
+  useEffect(() => {
+    if (!options.themeWarning || themeWarningLoggedRef.current) {
+      return;
+    }
+    appendLog("error", options.themeWarning);
+    themeWarningLoggedRef.current = true;
+  }, [appendLog, options.themeWarning]);
 
   const ensureLoggedIn = useCallback((): string => {
     if (!authState.token) {
@@ -648,6 +663,66 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     throw new Error("Unsupported run command.");
   }, [ensureLoggedIn, executeRunEventsFollow, handleUnauthorized, options.apiClient, printApiResponse]);
 
+  const executeThemeCommand = useCallback(async (parsed: ParsedCommandInput) => {
+    if (parsed.command === "list") {
+      appendJsonBlock("info", {
+        themes: THEME_NAMES,
+      });
+      return;
+    }
+
+    if (parsed.command === "current") {
+      appendJsonBlock("info", {
+        theme: options.themeName,
+      });
+      return;
+    }
+
+    if (parsed.command === "set") {
+      const positional = parsed.positionals[0]?.trim();
+      const optionName = readStringOption(parsed.options, "name")?.trim();
+      if (parsed.positionals.length > 1) {
+        throw new Error("theme set accepts only one positional theme name.");
+      }
+      if (positional && optionName && positional !== optionName) {
+        throw new Error("Conflicting theme names between positional and --name.");
+      }
+      const rawThemeName = optionName ?? positional;
+      if (!rawThemeName) {
+        throw new Error("theme set requires <name> or --name <theme>.");
+      }
+      if (!isThemeName(rawThemeName)) {
+        appendLog("error", `Unknown theme '${rawThemeName}'.`);
+        appendJsonBlock("info", { available: THEME_NAMES });
+        return;
+      }
+
+      await options.setThemeName(rawThemeName);
+      setIsThemePickerOpen(false);
+      appendLog("success", `Theme switched to '${rawThemeName}'.`);
+      appendJsonBlock("info", { theme: rawThemeName, persisted: true });
+      return;
+    }
+
+    throw new Error("Unsupported theme command.");
+  }, [appendJsonBlock, appendLog, options]);
+
+  const applyThemeFromPicker = useCallback(async (name: ThemeName) => {
+    if (!isThemeName(name)) {
+      appendLog("error", `Unknown theme '${name}'.`);
+      appendJsonBlock("info", { available: THEME_NAMES });
+      return;
+    }
+    await options.setThemeName(name);
+    setIsThemePickerOpen(false);
+    appendLog("success", `Theme switched to '${name}'.`);
+    appendJsonBlock("info", { theme: name, persisted: true });
+  }, [appendJsonBlock, appendLog, options]);
+
+  const closeThemePicker = useCallback(() => {
+    setIsThemePickerOpen(false);
+  }, []);
+
   const handleSlashCommand = useCallback(async (parsed: Extract<ParsedShellInput, { kind: "slash" }>) => {
     if (parsed.name === "exit") {
       appendLog("info", "Exiting abc-cli...");
@@ -678,8 +753,18 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         positionals: [],
         options: {},
       });
+      return;
     }
-  }, [appendLog, clearAuthState, executeMcpCommand, options]);
+
+    if (parsed.name === "theme") {
+      setIsThemePickerOpen(true);
+      appendLog("info", "Theme picker opened. Use Up/Down and Enter to apply.");
+      appendJsonBlock("info", {
+        current: options.themeName,
+        themes: THEME_NAMES,
+      });
+    }
+  }, [appendJsonBlock, appendLog, clearAuthState, executeMcpCommand, options]);
 
   const submitInput = useCallback(async (rawInput?: string) => {
     const input = (rawInput ?? "").trim();
@@ -706,7 +791,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     appendLog("command", `> ${input}`);
 
     if (parsed.kind === "text") {
-      appendLog("error", "Unknown command. Use /login, /mcp, mcp/session/run commands, or /exit.");
+      appendLog("error", "Unknown command. Use /login, /mcp, /theme, theme/mcp/session/run commands, or /exit.");
       return;
     }
 
@@ -727,13 +812,18 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         return;
       }
 
+      if (parsed.group === "theme") {
+        await executeThemeCommand(parsed);
+        return;
+      }
+
       await executeRunCommand(parsed);
     } catch (error) {
       appendLog("error", error instanceof Error ? error.message : String(error));
     } finally {
       inFlightRef.current = false;
     }
-  }, [appendLog, consumeLoginStep, executeMcpCommand, executeRunCommand, executeSessionCommand, handleSlashCommand, loginStep, options]);
+  }, [appendLog, consumeLoginStep, executeMcpCommand, executeRunCommand, executeSessionCommand, executeThemeCommand, handleSlashCommand, loginStep, options]);
 
   return {
     submitInput,
@@ -744,5 +834,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     authState,
     activeSessionId,
     streamState,
+    isThemePickerOpen,
+    applyThemeFromPicker,
+    closeThemePicker,
   };
 }

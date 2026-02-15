@@ -10,6 +10,14 @@ describe("parseShellInput", () => {
     }
   });
 
+  test("parses /theme slash command", () => {
+    const parsed = parseShellInput("/theme");
+    expect(parsed.kind).toBe("slash");
+    if (parsed.kind === "slash") {
+      expect(parsed.name).toBe("theme");
+    }
+  });
+
   test("rejects removed slash command /whoami", () => {
     const parsed = parseShellInput("/whoami");
     expect(parsed.kind).toBe("text");
@@ -43,6 +51,35 @@ describe("parseShellInput", () => {
       expect(parsed.group).toBe("run");
       expect(parsed.command).toBe("cancel");
       expect(parsed.positionals[0]).toBe("2001");
+    }
+  });
+
+  test("parses theme list", () => {
+    const parsed = parseShellInput("theme list");
+    expect(parsed.kind).toBe("command");
+    if (parsed.kind === "command") {
+      expect(parsed.group).toBe("theme");
+      expect(parsed.command).toBe("list");
+    }
+  });
+
+  test("parses theme set positional", () => {
+    const parsed = parseShellInput("theme set light-hc");
+    expect(parsed.kind).toBe("command");
+    if (parsed.kind === "command") {
+      expect(parsed.group).toBe("theme");
+      expect(parsed.command).toBe("set");
+      expect(parsed.positionals[0]).toBe("light-hc");
+    }
+  });
+
+  test("parses theme set option", () => {
+    const parsed = parseShellInput("theme set --name dark");
+    expect(parsed.kind).toBe("command");
+    if (parsed.kind === "command") {
+      expect(parsed.group).toBe("theme");
+      expect(parsed.command).toBe("set");
+      expect(readStringOption(parsed.options, "name")).toBe("dark");
     }
   });
 

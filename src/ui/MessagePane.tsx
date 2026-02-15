@@ -1,20 +1,23 @@
 import { TextAttributes } from "@opentui/core";
 import type { ShellLogEntry } from "../cli/shell/types";
 import { GreetingBanner } from "./GreetingBanner";
+import type { ThemeName, ThemePalette } from "../theme/types";
 
 interface MessagePaneProps {
   shellLogs: ShellLogEntry[];
+  palette: ThemePalette;
+  themeName: ThemeName;
 }
 
-export function MessagePane({ shellLogs }: MessagePaneProps) {
+export function MessagePane({ shellLogs, palette, themeName }: MessagePaneProps) {
   const renderLogEntry = (entry: ShellLogEntry) => {
     const color = entry.level === "error"
-      ? "#FF7C8A"
+      ? palette.accentError
       : entry.level === "success"
-        ? "#9EDCAA"
+        ? palette.accentSuccess
         : entry.level === "command"
-          ? "#F6D06E"
-          : "#D7DEE8";
+          ? palette.accentWarning
+          : palette.textPrimary;
 
     const timestamp = `[${new Date(entry.ts).toLocaleTimeString("en-US", { hour12: false })}] `;
     const lines = entry.text.split("\n");
@@ -38,14 +41,14 @@ export function MessagePane({ shellLogs }: MessagePaneProps) {
   };
 
   return (
-    <box flexGrow={1} minHeight={0} paddingLeft={1} paddingRight={1} paddingTop={1} flexDirection="column">
+    <box flexGrow={1} minHeight={0} paddingLeft={1} paddingRight={1} paddingTop={1} flexDirection="column" backgroundColor={palette.surfaceBg}>
       <scrollbox flexGrow={1} scrollY stickyScroll stickyStart="bottom">
         <box flexDirection="column" gap={1}>
-          <GreetingBanner />
-          <text attributes={TextAttributes.DIM}>Interactive shell mode. API-first, no local mock runtime.</text>
-          <text attributes={TextAttributes.DIM}>Commands: /login, /mcp, /logout, /exit, mcp/session/run ...</text>
+          <GreetingBanner themeName={themeName} />
+          <text fg={palette.textMuted} attributes={TextAttributes.DIM}>Interactive shell mode. API-first, no local mock runtime.</text>
+          <text fg={palette.textMuted} attributes={TextAttributes.DIM}>Commands: /login, /mcp, /logout, /exit, theme/mcp/session/run ...</text>
           <box flexDirection="column" gap={1}>
-            <text fg="#8BD0FF">Command Log</text>
+            <text fg={palette.accentInfo}>Command Log</text>
             {renderShellLogLines()}
           </box>
         </box>

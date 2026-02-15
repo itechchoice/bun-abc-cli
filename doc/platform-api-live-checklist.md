@@ -13,7 +13,7 @@ bun run dev
 可选：指定 API 地址
 
 ```bash
-ABC_API_BASE_URL="https://dychoice.stg.alphabitcore.io/api/v1" bun run dev
+ABC_API_BASE_URL="https://arch.stg.alphabitcore.io/api/v1" bun run dev
 ```
 
 ---
@@ -29,6 +29,9 @@ ABC_API_BASE_URL="https://dychoice.stg.alphabitcore.io/api/v1" bun run dev
 然后按提示输入：
 - 用户名（回车）
 - 密码（回车，输入框掩码显示）
+
+接口映射：
+- `/login` -> `POST /auth/login`
 
 ---
 
@@ -47,6 +50,13 @@ mcp sync --id 1
 mcp capabilities --id 1
 ```
 
+接口映射：
+- `mcp add ...` -> `POST /mcp/servers`
+- `/mcp` -> `GET /mcp/servers`
+- `mcp get 1` -> `GET /mcp/servers/1`
+- `mcp sync --id 1` -> `POST /mcp/servers/1/sync`
+- `mcp capabilities --id 1` -> `GET /mcp/servers/1/capabilities`
+
 ---
 
 ## 3. MCP Auth（可选联调）
@@ -56,6 +66,11 @@ mcp auth status --id 1
 mcp auth start --id 1 --connection-name demo --credentials-json '{"headers":{"X-API-Key":"demo-key"}}'
 mcp auth status --id 1
 ```
+
+接口映射：
+- `mcp auth status --id 1` -> `GET /mcp/servers/1/auth`
+- `mcp auth start --id 1 ...` -> `POST /mcp/servers/1/auth`
+- `mcp auth delete --id 1 [--connection-id 12345]` -> `DELETE /mcp/servers/1/auth?connectionId=12345`
 
 ---
 
@@ -68,6 +83,11 @@ session get 10001
 ```
 
 从返回 JSON 记录 `session_id`（示例：`10001`）。
+
+接口映射：
+- `session create --title ...` -> `POST /sessions`
+- `session list --page 1 --size 20` -> `GET /sessions?page=1&size=20`
+- `session get 10001` -> `GET /sessions/10001`
 
 ---
 
@@ -92,6 +112,13 @@ run cancel 20001
 run status 20001
 ```
 
+接口映射：
+- `run submit --objective ... [--session-id ...]` -> `POST /tasks`
+- `run status 20001` -> `GET /tasks/20001`
+- `run events --follow 20001` -> `GET /tasks/20001/events` (SSE)
+- `run artifacts 20001` -> `GET /tasks/20001/artifacts`
+- `run cancel 20001` -> `POST /tasks/20001/cancel`
+
 ---
 
 ## 6. 登出与退出
@@ -100,6 +127,10 @@ run status 20001
 /logout
 /exit
 ```
+
+接口映射：
+- `/logout` -> 无后端调用（仅清理本地 token）
+- `/exit` -> 无后端调用（仅退出 CLI 进程）
 
 ---
 

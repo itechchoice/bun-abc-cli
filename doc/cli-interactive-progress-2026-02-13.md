@@ -16,7 +16,12 @@
   - `run`（submit/status/events/artifacts/cancel）
 - 已完成交互壳命令面重构：
   - Slash：`/login` `/mcp` `/logout` `/exit`
-  - 手动命令：`mcp/session/run` 全量子命令
+  - 手动命令：`theme/mcp/session/run` 全量子命令
+- 已完成双主题与可读性改造：
+  - 支持 `dark` 与 `light-hc` 两套主题
+  - 支持 `theme list/current/set` 运行时切换
+  - 主题选择持久化到 `~/.abc-cli/theme.json`
+  - 状态栏显示当前主题 `theme:<name>`
 - 已完成统一输出契约：
   - 每次 HTTP 请求打印 method/path/status
   - 成功与失败都打印返回体 JSON

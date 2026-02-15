@@ -2,7 +2,7 @@ import { parseArgsStringToArgv } from "string-argv";
 import yargsParser from "yargs-parser";
 import type { ParsedShellInput, SlashCommandName } from "./types";
 
-const SLASH_COMMANDS: ReadonlySet<SlashCommandName> = new Set(["login", "logout", "mcp", "exit"]);
+const SLASH_COMMANDS: ReadonlySet<SlashCommandName> = new Set(["login", "logout", "mcp", "theme", "exit"]);
 
 function toOptionRecord(input: ReturnType<typeof yargsParser>): Record<string, string | boolean | string[]> {
   const entries = Object.entries(input).filter(([key]) => key !== "_" && key !== "$0");
@@ -20,7 +20,7 @@ function parseManualCommand(raw: string): ParsedShellInput {
   }
 
   const group = tokens[0];
-  if (group !== "mcp" && group !== "session" && group !== "run") {
+  if (group !== "mcp" && group !== "session" && group !== "run" && group !== "theme") {
     return { kind: "text", raw };
   }
 
@@ -75,6 +75,20 @@ function parseManualCommand(raw: string): ParsedShellInput {
 
   if (group === "session") {
     if (command === "create" || command === "list" || command === "get") {
+      return {
+        kind: "command",
+        raw,
+        group,
+        command,
+        positionals: positionals.slice(1),
+        options,
+      };
+    }
+    return { kind: "text", raw };
+  }
+
+  if (group === "theme") {
+    if (command === "list" || command === "current" || command === "set") {
       return {
         kind: "command",
         raw,

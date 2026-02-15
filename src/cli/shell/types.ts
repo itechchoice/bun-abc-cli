@@ -15,12 +15,12 @@ export interface AuthSessionState {
 
 export type LoginStep = "idle" | "await_username" | "await_password";
 
-export type SlashCommandName = "login" | "logout" | "mcp" | "exit";
+export type SlashCommandName = "login" | "logout" | "mcp" | "theme" | "exit";
 
 export interface ParsedCommandInput {
   kind: "command";
   raw: string;
-  group: "mcp" | "session" | "run";
+  group: "mcp" | "session" | "run" | "theme";
   command: string;
   subcommand?: string;
   positionals: string[];

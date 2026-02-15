@@ -50,6 +50,9 @@ Slash 命令：
 
 手动命令（核心）：
 
+- `theme list`
+- `theme current`
+- `theme set light-hc`
 - `mcp add --server-code weather_mcp --url http://127.0.0.1:9001 --version v0`
 - `mcp list`
 - `mcp get <id>`
@@ -61,6 +64,16 @@ Slash 命令：
 - `run cancel <task_id>`
 
 完整命令契约见：`requirements/cli-command.md`。
+
+## Theme Support
+
+- 支持两套主题：`dark`、`light-hc`
+- 运行时切换：
+  - `theme list`
+  - `theme current`
+  - `theme set <name>`
+- 主题持久化路径：`~/.abc-cli/theme.json`
+- 启动优先级：`ABC_THEME` > 本地 theme 文件 > 默认 `dark`
 
 ## Output Contract
 

@@ -49,6 +49,21 @@ abc
 - `session list [--status <active|archived>] [--page <n>] [--size <n>]`
 - `session get <session_id>`
 
+## Theme 命令
+
+- `theme list`
+- `theme current`
+- `theme set <name>`
+- `theme set --name <name>`
+
+支持主题：
+- `dark`
+- `light-hc`
+
+持久化：
+- 路径：`~/.abc-cli/theme.json`
+- 启动优先级：`ABC_THEME`（环境变量） > 本地 theme 文件 > 默认 `dark`
+
 ## Run 命令
 
 - `run submit --objective <text> [--session-id <id>]`
