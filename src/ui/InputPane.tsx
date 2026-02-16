@@ -229,20 +229,40 @@ export function InputPane({
             flexDirection="column"
             gap={0}
             backgroundColor={palette.panelBg}
+            border
+            borderStyle="rounded"
+            borderColor={palette.accentBrand}
             paddingLeft={1}
             paddingRight={1}
             flexShrink={0}
           >
             {slashSuggestions.map((item, index) => {
-              const selected = index === selectedSlashIndex;
+              const isSelected = index === selectedSlashIndex;
               return (
-                <box key={item.command} width="100%">
-                  <text fg={selected ? palette.menuSelected : palette.menuNormal}>
-                    {`${selected ? ">" : " "} ${item.command}  ${item.description}`}
-                  </text>
+                <box
+                  key={item.command}
+                  width="100%"
+                  backgroundColor={isSelected ? palette.accentBrand : undefined}
+                  paddingLeft={1}
+                  paddingRight={1}
+                >
+                  <box flexDirection="row" gap={1} width="100%">
+                    <text fg={isSelected ? palette.textInverse : palette.textPrimary}>
+                      {isSelected ? "❯" : " "}
+                    </text>
+                    <text fg={isSelected ? palette.textInverse : palette.textPrimary}>
+                      {item.command}
+                    </text>
+                    <text fg={isSelected ? palette.textInverse : palette.textMuted} attributes={isSelected ? 0 : TextAttributes.DIM}>
+                      {item.description}
+                    </text>
+                  </box>
                 </box>
               );
             })}
+            {slashSuggestions.length > 6 ? (
+              <text fg={palette.textMuted} attributes={TextAttributes.DIM}>{"  ▼ more"}</text>
+            ) : null}
           </box>
         ) : null}
 
@@ -251,18 +271,38 @@ export function InputPane({
             flexDirection="column"
             gap={0}
             backgroundColor={palette.panelBg}
+            border
+            borderStyle="rounded"
+            borderColor={palette.accentBrand}
             paddingLeft={1}
             paddingRight={1}
             flexShrink={0}
           >
             {themeOptions.map((item, index) => {
-              const selected = index === selectedThemeIndex;
+              const isSelected = index === selectedThemeIndex;
               const active = item.name === activeThemeName;
               return (
-                <box key={item.name} width="100%">
-                  <text fg={selected ? palette.menuSelected : palette.menuNormal}>
-                    {`${selected ? ">" : " "} ${item.name}${active ? " (current)" : ""}  ${item.description}`}
-                  </text>
+                <box
+                  key={item.name}
+                  width="100%"
+                  backgroundColor={isSelected ? palette.accentBrand : undefined}
+                  paddingLeft={1}
+                  paddingRight={1}
+                >
+                  <box flexDirection="row" gap={1} width="100%">
+                    <text fg={isSelected ? palette.textInverse : palette.textPrimary}>
+                      {isSelected ? "❯" : " "}
+                    </text>
+                    <text fg={isSelected ? palette.textInverse : palette.textPrimary}>
+                      {item.name}
+                    </text>
+                    {active ? (
+                      <text fg={isSelected ? palette.textInverse : palette.accentSuccess}>{"✓"}</text>
+                    ) : null}
+                    <text fg={isSelected ? palette.textInverse : palette.textMuted} attributes={isSelected ? 0 : TextAttributes.DIM}>
+                      {item.description}
+                    </text>
+                  </box>
                 </box>
               );
             })}
