@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRenderer } from "@opentui/react";
+import { useDialog, useDialogKeyboard, type ConfirmContext } from "@opentui-ui/dialog/react";
+import { toast } from "@opentui-ui/toast/react";
 import type { PlatformApiClient } from "../adapters/platform-api/client";
 import { useShellCommandController } from "../hooks/use-shell-command-controller";
 import { useShortcuts } from "../hooks/use-shortcuts";
@@ -21,8 +23,38 @@ interface AppShellProps {
   configService: ConfigService;
 }
 
+/** Logout confirm dialog content */
+function LogoutConfirmDialog({ resolve, dialogId }: ConfirmContext) {
+  const [selected, setSelected] = useState<"cancel" | "logout">("cancel");
+
+  useDialogKeyboard((key) => {
+    if (key.name === "tab" || key.name === "left" || key.name === "right") {
+      setSelected((prev) => (prev === "cancel" ? "logout" : "cancel"));
+    }
+    if (key.name === "return") {
+      resolve(selected === "logout");
+    }
+    if (key.name === "escape") {
+      resolve(false);
+    }
+  }, dialogId);
+
+  return (
+    <box flexDirection="column" gap={1}>
+      <text fg="#cba6f7">Logout Confirmation</text>
+      <text fg="#cdd6f4">Clear local auth token and session?</text>
+      <box flexDirection="row" gap={2}>
+        <text bg={selected === "cancel" ? "#45475a" : "#313244"} fg={selected === "cancel" ? "#cdd6f4" : "#a6adc8"}>{" Cancel "}</text>
+        <text bg={selected === "logout" ? "#f38ba8" : "#313244"} fg={selected === "logout" ? "#1e1e2e" : "#a6adc8"}>{" Logout "}</text>
+      </box>
+      <text fg="#6c7086">Tab to switch, Enter to confirm, Esc to cancel</text>
+    </box>
+  );
+}
+
 export function AppShell({ apiClient, configService }: AppShellProps) {
   const renderer = useRenderer();
+  const dialog = useDialog();
   const [draft, setDraft] = useState("");
   const [historyState, setHistoryState] = useState(createCommandHistoryState);
   const draftRef = useRef(draft);
@@ -52,6 +84,15 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
     themeWarning,
     setThemeName,
     onExit: exitShell,
+    onLogoutRequest: async () => {
+      const confirmed = await dialog.confirm({
+        content: (ctx) => <LogoutConfirmDialog {...ctx} />,
+        unstyled: true,
+        fallback: false,
+      });
+      return confirmed;
+    },
+    onToast: toast,
   });
 
   const slashSuggestions = useMemo(() => {

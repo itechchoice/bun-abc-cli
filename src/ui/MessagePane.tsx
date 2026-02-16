@@ -1,5 +1,5 @@
 import { TextAttributes } from "@opentui/core";
-import type { ShellLogEntry } from "../cli/shell/types";
+import type { ShellLogEntry, ShellLogLevel } from "../cli/shell/types";
 import { GreetingBanner } from "./GreetingBanner";
 import type { ThemeName, ThemePalette } from "../theme/types";
 
@@ -9,15 +9,19 @@ interface MessagePaneProps {
   themeName: ThemeName;
 }
 
+function logLevelColor(level: ShellLogLevel, palette: ThemePalette): string {
+  const LOG_COLORS: Record<ShellLogLevel, string> = {
+    error: palette.accentError,
+    success: palette.accentSuccess,
+    command: palette.accentWarning,
+    info: palette.textPrimary,
+  };
+  return LOG_COLORS[level] ?? palette.textPrimary;
+}
+
 export function MessagePane({ shellLogs, palette, themeName }: MessagePaneProps) {
   const renderLogEntry = (entry: ShellLogEntry) => {
-    const color = entry.level === "error"
-      ? palette.accentError
-      : entry.level === "success"
-        ? palette.accentSuccess
-        : entry.level === "command"
-          ? palette.accentWarning
-          : palette.textPrimary;
+    const color = logLevelColor(entry.level, palette);
 
     const timestamp = `[${new Date(entry.ts).toLocaleTimeString("en-US", { hour12: false })}] `;
     const lines = entry.text.split("\n");

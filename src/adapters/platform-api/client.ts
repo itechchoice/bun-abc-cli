@@ -20,8 +20,7 @@ import type {
   TaskListResponse,
   UpdateMcpRequest,
 } from "./types";
-
-const DEFAULT_BASE_URL = "https://arch.stg.alphabitcore.io/api/v1";
+import { DEFAULT_BASE_URL } from "../../constants";
 
 function joinUrl(baseUrl: string, path: string, query?: ApiRequestOptions["query"]): string {
   const base = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;

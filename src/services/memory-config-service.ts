@@ -1,6 +1,5 @@
 import type { ConfigService, RuntimeConfig } from "./config-service";
-
-const DEFAULT_BASE_URL = "https://arch.stg.alphabitcore.io/api/v1";
+import { DEFAULT_BASE_URL } from "../constants";
 
 export function createMemoryConfigService(): ConfigService {
   return {
