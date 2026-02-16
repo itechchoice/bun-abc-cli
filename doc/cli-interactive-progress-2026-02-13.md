@@ -1,6 +1,6 @@
 # CLI 进度清单（Interactive Shell）
 
-> 更新时间：2026-02-14
+> 更新时间：2026-02-16
 > 范围：`OpenTUI + React + TypeScript + Bun` 交互壳模式（仅 PLATFORM_API）
 
 ## Done
@@ -13,7 +13,7 @@
   - `POST /auth/login`
   - `mcp` 全量接口（add/list/get/update/delete/sync/capabilities/auth）
   - `session`（create/list/get）
-  - `run`（submit/status/events/artifacts/cancel）
+  - `run`（submit/status/events/cancel）
 - 已完成交互壳命令面重构：
   - Slash：`/login` `/mcp` `/logout` `/exit`
   - 手动命令：`theme/mcp/session/run` 全量子命令
@@ -36,6 +36,20 @@
   - 终态事件自动结束
   - 断线按 `1s/2s/4s/8s` 退避重连
   - 重连前先 `GET /tasks/{task_id}` 并输出 JSON
+- 已补充 MCP 认证后自动同步：
+  - `mcp auth start ...` 成功后 CLI 自动触发一次 `mcp sync --id <id>`
+- 已补充 token 刷新能力：
+  - 支持手动命令 `auth refresh`
+  - 受保护请求遇到 401 自动 refresh 并重试一次
+- 已补充会话化强约束：
+  - 新增 `session use/current/leave`
+  - `run *` 命令必须处于 active session
+  - task 会话不一致时提示先 `session use <id>`
+- 已补充 run 列表：
+  - `run list --status --page --size` -> `GET /tasks`
+- 已补充 MCP JSON 整包模式：
+  - `mcp add --payload-json <json>`
+  - `mcp auth start --id <id> --payload-json <json>`
 - 已保留并验证登录安全能力：
   - 密码输入掩码
   - 启动自动恢复本地 token
@@ -55,7 +69,7 @@
 - 增加命令帮助页（可选）：
   - `help` 或 `/help`
 - 可选增强：
-  - token 刷新（refresh_token）
+  - OAuth2 redirect 手工打开浏览器体验优化
   - 命令输出 `--json` 开关（当前默认已是 JSON-first）
 
 ## 演示建议路径
@@ -64,8 +78,9 @@
 2. `mcp add ...`
 3. `/mcp`
 4. `mcp get <id>`
-5. `run submit --objective "..."`
-6. `run status <task_id>`
-7. `run events --follow <task_id>`
-8. `run artifacts <task_id>`
-9. `/exit`
+5. `session create --title "..."`
+6. `session use <sessionId>`
+7. `run submit --objective "..." --session-id <sessionId>`
+8. `run status <task_id>`
+9. `run events --follow <task_id>`
+10. `/exit`

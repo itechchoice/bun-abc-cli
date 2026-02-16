@@ -63,6 +63,7 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
     const options = [
       { command: "/login", description: "interactive login" },
       { command: "/mcp", description: "list MCP servers" },
+      { command: "/sessions", description: "list sessions" },
       { command: "/theme", description: "open theme picker" },
       { command: "/logout", description: "clear local token" },
       { command: "/exit", description: "exit abc-cli shell" },
@@ -73,6 +74,7 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
 
   useShortcuts({
     onExit: exitShell,
+    onInterrupt: shell.stopActiveFollow,
     onClearInput: () => setDraft(""),
   });
 
@@ -91,6 +93,9 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
   }, []);
 
   const handleSubmit = async (value?: string) => {
+    if (shell.isFollowingEvents) {
+      return;
+    }
     const raw = value ?? draft;
     const trimmed = raw.trim();
     await shell.submitInput(raw);
@@ -145,6 +150,7 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
           draft={draft}
           palette={palette}
           pendingRequestCount={shell.pendingRequestCount}
+          activeSessionId={shell.activeSessionId}
           shellHint={shell.loginHint}
           passwordMode={shell.isPasswordInput}
           historyBrowsing={historyState.index !== null}
@@ -159,14 +165,19 @@ export function AppShell({ apiClient, configService }: AppShellProps) {
           onHistoryNext={handleHistoryNext}
           onThemeSelect={shell.applyThemeFromPicker}
           onThemePickerClose={shell.closeThemePicker}
-          onInput={setDraft}
+          onInput={(value) => {
+            if (shell.isFollowingEvents) {
+              return;
+            }
+            setDraft(value);
+          }}
           onSubmit={handleSubmit}
         />
         <StatusBar
           apiLabel={runtimeConfig.provider}
           themeName={themeName}
           palette={palette}
-          authOn={Boolean(shell.authState.token)}
+          authOn={Boolean(shell.authState.accessToken)}
           activeSessionId={shell.activeSessionId}
           streamState={shell.streamState}
           historyCount={historyState.entries.length}

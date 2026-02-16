@@ -2,7 +2,7 @@ import { parseArgsStringToArgv } from "string-argv";
 import yargsParser from "yargs-parser";
 import type { ParsedShellInput, SlashCommandName } from "./types";
 
-const SLASH_COMMANDS: ReadonlySet<SlashCommandName> = new Set(["login", "logout", "mcp", "theme", "exit"]);
+const SLASH_COMMANDS: ReadonlySet<SlashCommandName> = new Set(["login", "logout", "mcp", "sessions", "theme", "exit"]);
 
 function toOptionRecord(input: ReturnType<typeof yargsParser>): Record<string, string | boolean | string[]> {
   const entries = Object.entries(input).filter(([key]) => key !== "_" && key !== "$0");
@@ -20,7 +20,7 @@ function parseManualCommand(raw: string): ParsedShellInput {
   }
 
   const group = tokens[0];
-  if (group !== "mcp" && group !== "session" && group !== "run" && group !== "theme") {
+  if (group !== "auth" && group !== "mcp" && group !== "session" && group !== "run" && group !== "theme") {
     return { kind: "text", raw };
   }
 
@@ -40,6 +40,20 @@ function parseManualCommand(raw: string): ParsedShellInput {
   const options = toOptionRecord(parsed);
 
   if (!command) {
+    return { kind: "text", raw };
+  }
+
+  if (group === "auth") {
+    if (command === "refresh") {
+      return {
+        kind: "command",
+        raw,
+        group,
+        command,
+        positionals: positionals.slice(1),
+        options,
+      };
+    }
     return { kind: "text", raw };
   }
 
@@ -74,7 +88,7 @@ function parseManualCommand(raw: string): ParsedShellInput {
   }
 
   if (group === "session") {
-    if (command === "create" || command === "list" || command === "get") {
+    if (command === "create" || command === "list" || command === "get" || command === "use" || command === "current" || command === "leave") {
       return {
         kind: "command",
         raw,
@@ -101,7 +115,7 @@ function parseManualCommand(raw: string): ParsedShellInput {
     return { kind: "text", raw };
   }
 
-  if (command === "submit" || command === "status" || command === "events" || command === "artifacts" || command === "cancel") {
+  if (command === "submit" || command === "status" || command === "events" || command === "cancel" || command === "list") {
     return {
       kind: "command",
       raw,

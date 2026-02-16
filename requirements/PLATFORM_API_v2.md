@@ -1,6 +1,6 @@
 # Platform API 文档
 
-> Base URL：`https://dychoice.stg.alphabitcore.io/api/v1`（以下用 `${BASE_URL}` 代替）
+> Base URL：`https://arch.stg.alphabitcore.io/api/v1`（以下用 `${BASE_URL}` 代替）
 >
 > 认证：除登录和 OAuth2 回调外，所有接口需携带 Header `Authorization: Bearer <access_token>`
 >
@@ -88,27 +88,27 @@ curl -X POST ${BASE_URL}/auth/refresh \
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| `server_code` | `string` | 是 | 服务编码（租户内唯一，同一编码可多版本） |
+| `serverCode` | `string` | 是 | 服务编码（租户内唯一，同一编码可多版本） |
 | `version` | `string` | 是 | 版本号 |
 | `name` | `string` | 是 | 显示名称 |
 | `description` | `string` | 否 | 描述信息 |
 | `endpoint` | `string` | 是 | MCP Server 端点地址 |
-| `auth_type` | `string` | 是 | 认证类型：`NONE`、`API_KEY`、`BASIC`、`OAUTH2`、`JWT`、`CUSTOM` |
-| `auth_config` | `object` | 是 | 认证配置（格式见 2.6） |
+| `authType` | `string` | 是 | 认证类型：`NONE`、`API_KEY`、`BASIC`、`OAUTH2`、`JWT`、`CUSTOM` |
+| `authConfig` | `object` | 是 | 认证配置（格式见 2.6） |
 
-**出参**：完整的 MCP Server 对象（含 `id`、`status`、`cache_version` 等）
+**出参**：完整的 MCP Server 对象（含 `id`、`status`、`cacheVersion` 等）
 
 ```bash
 curl -X POST ${BASE_URL}/mcp/servers \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "server_code": "weather_mcp",
+    "serverCode": "weather_mcp",
     "version": "v1",
     "name": "Weather Service",
     "endpoint": "https://weather-mcp.example.com/sse",
-    "auth_type": "API_KEY",
-    "auth_config": {
+    "authType": "API_KEY",
+    "authConfig": {
       "headers": {"X-API-Key": "sk-xxx"}
     }
   }'
@@ -117,15 +117,15 @@ curl -X POST ${BASE_URL}/mcp/servers \
 ```json
 {
   "id": 1,
-  "server_code": "weather_mcp",
+  "serverCode": "weather_mcp",
   "version": "v1",
   "name": "Weather Service",
   "endpoint": "https://weather-mcp.example.com/sse",
-  "auth_type": "API_KEY",
+  "authType": "API_KEY",
   "status": "active",
-  "cache_version": 1,
-  "last_sync_at": "2025-02-13T10:00:00",
-  "created_at": "2025-02-13T10:00:00"
+  "cacheVersion": 1,
+  "lastSyncAt": "2025-02-13T10:00:00",
+  "createdAt": "2025-02-13T10:00:00"
 }
 ```
 
@@ -137,12 +137,12 @@ curl -X POST ${BASE_URL}/mcp/servers \
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| `server_code` | `string` | 否 | 按编码过滤 |
+| `serverCode` | `string` | 否 | 按编码过滤 |
 | `status` | `string` | 否 | 按状态过滤：`ACTIVE`、`INACTIVE` |
 
-**出参**：数组，每项含 `id`、`server_code`、`version`、`name`、`endpoint`、`auth_type`、`auth_config`、`status`、`connection_status`
+**出参**：数组，每项含 `id`、`serverCode`、`version`、`name`、`endpoint`、`authType`、`authConfig`、`status`、`connectionStatus`
 
-> `connection_status` 为当前登录用户对该 Server 的认证连接状态：`ACTIVE`（已连接）、`PENDING`（凭证失效，待重新认证）、`DISABLED`（手动禁用）、`null`（未连接）。通过 JWT 自动获取 `userId`，无需前端传参。
+> `connectionStatus` 为当前登录用户对该 Server 的认证连接状态：`ACTIVE`（已连接）、`PENDING`（凭证失效，待重新认证）、`DISABLED`（手动禁用）、`null`（未连接）。通过 JWT 自动获取 `userId`，无需前端传参。
 
 ```bash
 curl -X GET ${BASE_URL}/mcp/servers -H "Authorization: Bearer <token>"
@@ -152,31 +152,31 @@ curl -X GET ${BASE_URL}/mcp/servers -H "Authorization: Bearer <token>"
 [
   {
     "id": 8,
-    "server_code": "advizorpro",
+    "serverCode": "advizorpro",
     "version": "v1",
     "name": "AdvizorPro",
     "endpoint": "https://mcp.api.advizorpro.com",
-    "auth_type": "API_KEY",
-    "auth_config": { "headers": [{ "key": "Authorization", "prefix": "Bearer ", "..." : "..." }] },
+    "authType": "API_KEY",
+    "authConfig": { "headers": [{ "key": "Authorization", "prefix": "Bearer ", "..." : "..." }] },
     "status": "ACTIVE",
-    "connection_status": "ACTIVE",
-    "cache_version": 1,
-    "last_sync_at": "2026-02-16T01:00:00",
-    "created_at": "2026-02-16T00:49:50"
+    "connectionStatus": "ACTIVE",
+    "cacheVersion": 1,
+    "lastSyncAt": "2026-02-16T01:00:00",
+    "createdAt": "2026-02-16T00:49:50"
   },
   {
     "id": 9,
-    "server_code": "github",
+    "serverCode": "github",
     "version": "v1",
     "name": "GitHub",
     "endpoint": "https://mcp.github.com",
-    "auth_type": "OAUTH2",
-    "auth_config": { "..." : "..." },
+    "authType": "OAUTH2",
+    "authConfig": { "..." : "..." },
     "status": "ACTIVE",
-    "connection_status": null,
-    "cache_version": 0,
-    "last_sync_at": null,
-    "created_at": "2026-02-16T01:00:00"
+    "connectionStatus": null,
+    "cacheVersion": 0,
+    "lastSyncAt": null,
+    "createdAt": "2026-02-16T01:00:00"
   }
 ]
 ```
@@ -185,7 +185,7 @@ curl -X GET ${BASE_URL}/mcp/servers -H "Authorization: Bearer <token>"
 
 `GET /api/v1/mcp/servers/{id}`
 
-返回完整信息，含 `auth_config` 和当前用户的 `connection_status`。
+返回完整信息，含 `authConfig` 和当前用户的 `connectionStatus`。
 
 ```bash
 curl -X GET ${BASE_URL}/mcp/servers/8 -H "Authorization: Bearer <token>"
@@ -195,7 +195,7 @@ curl -X GET ${BASE_URL}/mcp/servers/8 -H "Authorization: Bearer <token>"
 
 `PUT /api/v1/mcp/servers/{id}`
 
-可更新 `name`、`description`、`endpoint`、`auth_type`、`auth_config`。`server_code` 和 `version` 不可修改。
+可更新 `name`、`description`、`endpoint`、`authType`、`authConfig`。`serverCode` 和 `version` 不可修改。
 
 ```bash
 curl -X PUT ${BASE_URL}/mcp/servers/1 \
@@ -214,15 +214,15 @@ curl -X PUT ${BASE_URL}/mcp/servers/1 \
 curl -X DELETE ${BASE_URL}/mcp/servers/1 -H "Authorization: Bearer <token>"
 ```
 
-### 2.6 auth_config 格式说明
+### 2.6 authConfig 格式说明
 
-`auth_config` 是管理员注册 MCP Server 时提供的**服务器级认证配置**，结构取决于 `auth_type`。它同时承担两个职责：
+`authConfig` 是管理员注册 MCP Server 时提供的**服务器级认证配置**，结构取决于 `authType`。它同时承担两个职责：
 
 1. **前端渲染**：告诉 Web 界面在用户连接时渲染什么表单字段（字段名、描述、是否敏感等）
 2. **运行时注入**：告诉 Execution Plane 如何将用户凭证注入到 HTTP 请求中（Header 名、前缀等）
 
-> **auth_config vs mcp_connections.credentials 的关系**：
-> - `auth_config`：**服务器级配置**，管理员注册时填写，定义"需要什么凭证、怎么使用"
+> **authConfig vs mcp_connections.credentials 的关系**：
+> - `authConfig`：**服务器级配置**，管理员注册时填写，定义"需要什么凭证、怎么使用"
 > - `mcp_connections.credentials`：**用户级凭证**，终端用户连接时填写，存储实际的凭证值
 
 ---
@@ -356,63 +356,63 @@ curl -X DELETE ${BASE_URL}/mcp/servers/1 -H "Authorization: Bearer <token>"
 
 ```json
 {
-  "authUrl": "https://dev-123456.okta.com/oauth2/default/v1/authorize",
-  "tokenUrl": "https://dev-123456.okta.com/oauth2/default/v1/token",
-  "refreshUrl": "https://dev-123456.okta.com/oauth2/default/v1/token",
-  "clientId": "0oawa3xdyv5I8qbCb697",
-  "clientSecret": "",
-  "redirectUri": "https://our-app.com/api/v1/mcp/auth/callback",
+  "auth_url": "https://dev-123456.okta.com/oauth2/default/v1/authorize",
+  "token_url": "https://dev-123456.okta.com/oauth2/default/v1/token",
+  "refresh_url": "https://dev-123456.okta.com/oauth2/default/v1/token",
+  "client_id": "0oawa3xdyv5I8qbCb697",
+  "client_secret": "",
+  "redirect_uri": "https://our-app.com/api/v1/mcp/auth/callback",
   "scopes": ["openid", "profile", "email", "offline_access"],
-  "grantType": "authorization_code",
-  "responseType": "code",
+  "grant_type": "authorization_code",
+  "response_type": "code",
   "pkce": true
 }
 ```
 
-**样例 2**：OIDC Discovery 最简配置（通过 `issuerUrl` 自动发现端点）
+**样例 2**：OIDC Discovery 最简配置（通过 `issuer_url` 自动发现端点）
 
 ```json
 {
-  "issuerUrl": "https://dev-123456.okta.com/oauth2/default",
-  "clientId": "0oawa3xdyv5I8qbCb697",
-  "clientSecret": "",
-  "redirectUri": "https://our-app.com/api/v1/mcp/auth/callback",
+  "issuer_url": "https://dev-123456.okta.com/oauth2/default",
+  "client_id": "0oawa3xdyv5I8qbCb697",
+  "client_secret": "",
+  "redirect_uri": "https://our-app.com/api/v1/mcp/auth/callback",
   "scopes": ["openid", "profile", "offline_access"],
   "pkce": true
 }
 ```
 
-> 提供 `issuerUrl` 时，系统通过 `{issuerUrl}/.well-known/openid-configuration` 自动发现 `authUrl`、`tokenUrl`、`refreshUrl`。如果同时显式提供了具体端点，以显式配置为准。
+> 提供 `issuer_url` 时，系统通过 `{issuer_url}/.well-known/openid-configuration` 自动发现 `auth_url`、`token_url`、`refresh_url`。如果同时显式提供了具体端点，以显式配置为准。
 
 | 字段 | 必填 | 说明 |
 |------|-----|------|
-| `clientId` | 是 | OAuth2 客户端 ID |
-| `redirectUri` | 是 | 回调地址 |
-| `issuerUrl` | 否* | OIDC Issuer URL，支持自动发现端点（`authUrl`、`tokenUrl`、`refreshUrl`） |
-| `authUrl` | 否* | 授权端点 |
-| `tokenUrl` | 否* | Token 交换端点 |
-| `clientSecret` | 否 | 客户端密钥（公开客户端 + PKCE 时可省略） |
-| `refreshUrl` | 否 | Token 刷新端点，默认同 `tokenUrl` |
+| `client_id` | 是 | OAuth2 客户端 ID |
+| `redirect_uri` | 是 | 回调地址 |
+| `issuer_url` | 否* | OIDC Issuer URL，支持自动发现端点（`auth_url`、`token_url`、`refresh_url`） |
+| `auth_url` | 否* | 授权端点 |
+| `token_url` | 否* | Token 交换端点 |
+| `client_secret` | 否 | 客户端密钥（公开客户端 + PKCE 时可省略） |
+| `refresh_url` | 否 | Token 刷新端点，默认同 `token_url` |
 | `scopes` | 否 | 授权范围列表 |
-| `grantType` | 否 | 默认 `authorization_code` |
-| `responseType` | 否 | 默认 `code` |
+| `grant_type` | 否 | 默认 `authorization_code` |
+| `response_type` | 否 | 默认 `code` |
 | `pkce` | 否 | 是否启用 PKCE，默认 `false` |
 
-> *`issuerUrl` 与 `authUrl`/`tokenUrl` 二选一：提供 `issuerUrl` 时可省略端点配置；不提供 `issuerUrl` 时 `authUrl` 和 `tokenUrl` 必填。
+> *`issuer_url` 与 `auth_url`/`token_url` 二选一：提供 `issuer_url` 时可省略端点配置；不提供 `issuer_url` 时 `auth_url` 和 `token_url` 必填。
 
 **样例 3**（带 Client Secret、无 PKCE，如 GitHub）：
 
 ```json
 {
-  "authUrl": "https://github.com/login/oauth/authorize",
-  "tokenUrl": "https://github.com/login/oauth/access_token",
-  "refreshUrl": "",
-  "clientId": "Iv1.a1b2c3d4e5f6",
-  "clientSecret": "secret_abcdef1234567890",
-  "redirectUri": "https://our-app.com/api/v1/mcp/auth/callback",
+  "auth_url": "https://github.com/login/oauth/authorize",
+  "token_url": "https://github.com/login/oauth/access_token",
+  "refresh_url": "",
+  "client_id": "Iv1.a1b2c3d4e5f6",
+  "client_secret": "secret_abcdef1234567890",
+  "redirect_uri": "https://our-app.com/api/v1/mcp/auth/callback",
   "scopes": ["repo", "read:user"],
-  "grantType": "authorization_code",
-  "responseType": "code",
+  "grant_type": "authorization_code",
+  "response_type": "code",
   "pkce": false
 }
 ```
@@ -436,7 +436,7 @@ curl -X DELETE ${BASE_URL}/mcp/servers/1 -H "Authorization: Bearer <token>"
 
 #### BASIC
 
-标准 HTTP Basic 认证。`fields` 定义用户需要填写的表单字段，管理员可自定义标签。如果 `auth_config` 为 `{}`，前端 fallback 到默认的 username + password 字段。
+标准 HTTP Basic 认证。`fields` 定义用户需要填写的表单字段，管理员可自定义标签。如果 `authConfig` 为 `{}`，前端 fallback 到默认的 username + password 字段。
 
 ```json
 {
@@ -509,7 +509,7 @@ curl -X DELETE ${BASE_URL}/mcp/servers/1 -H "Authorization: Bearer <token>"
 
 ```json
 {
-  "tokenUrl": "https://api.example.com/auth/refresh",
+  "token_url": "https://api.example.com/auth/refresh",
   "headers": [
     {
       "key": "Authorization",
@@ -538,7 +538,7 @@ curl -X DELETE ${BASE_URL}/mcp/servers/1 -H "Authorization: Bearer <token>"
 
 | 字段 | 必填 | 说明 |
 |------|-----|------|
-| `tokenUrl` | 否 | Token 刷新端点（提供时启用自动刷新） |
+| `token_url` | 否 | Token 刷新端点（提供时启用自动刷新） |
 | `headers` | 是 | 需要注入的 HTTP Header 定义 |
 | `fields` | 否 | 额外的用户输入字段（如 refresh_token） |
 
@@ -561,7 +561,7 @@ curl -X DELETE ${BASE_URL}/mcp/servers/1 -H "Authorization: Bearer <token>"
 }
 ```
 
-> **JWT vs API_KEY 的区别**：配置格式相似，但 JWT 类型支持 `tokenUrl` + `fields.refresh_token` 实现自动刷新，API_KEY 不具备此能力。如果只是传一个静态 token，用 API_KEY 即可。
+> **JWT vs API_KEY 的区别**：配置格式相似，但 JWT 类型支持 `token_url` + `fields.refresh_token` 实现自动刷新，API_KEY 不具备此能力。如果只是传一个静态 token，用 API_KEY 即可。
 
 **用户 credentials 存储格式**：
 
@@ -611,9 +611,9 @@ BASIC、JWT 使用 `fields[]` 收集非 Header 类型的用户输入：
 
 `POST /api/v1/mcp/servers/{id}/sync`
 
-连接 MCP Server 端点，拉取最新的 Tool 列表，更新 `governance_capabilities` 表，递增 `cache_version`。
+连接 MCP Server 端点，拉取最新的 Tool 列表，更新 `governance_capabilities` 表，递增 `cacheVersion`。
 
-**出参**：`cache_version`（新版本号）、`capabilities_count`（同步后的能力总数）、`diff`（新增/移除/变更的能力）
+**出参**：`cacheVersion`（新版本号）、`capabilitiesCount`（同步后的能力总数）、`diff`（新增/移除/变更的能力）
 
 ```bash
 curl -X POST ${BASE_URL}/mcp/servers/1/sync -H "Authorization: Bearer <token>"
@@ -621,8 +621,8 @@ curl -X POST ${BASE_URL}/mcp/servers/1/sync -H "Authorization: Bearer <token>"
 
 ```json
 {
-  "cache_version": 2,
-  "capabilities_count": 5,
+  "cacheVersion": 2,
+  "capabilitiesCount": 5,
   "diff": {
     "added": ["weather.forecast", "weather.current"],
     "removed": [],
@@ -637,7 +637,7 @@ curl -X POST ${BASE_URL}/mcp/servers/1/sync -H "Authorization: Bearer <token>"
 
 返回该 MCP Server 的所有已注册能力。
 
-**出参**：数组，每项含 `id`、`name`、`description`、`input_schema`、`output_schema`、`status`
+**出参**：数组，每项含 `id`、`name`、`description`、`inputSchema`、`outputSchema`、`status`
 
 ```bash
 curl -X GET ${BASE_URL}/mcp/servers/1/capabilities -H "Authorization: Bearer <token>"
@@ -649,8 +649,8 @@ curl -X GET ${BASE_URL}/mcp/servers/1/capabilities -H "Authorization: Bearer <to
     "id": 10,
     "name": "weather.forecast",
     "description": "Get weather forecast for a location",
-    "input_schema": {"type": "object", "properties": {"city": {"type": "string"}}},
-    "output_schema": {"type": "object", "properties": {"forecast": {"type": "array"}}},
+    "inputSchema": {"type": "object", "properties": {"city": {"type": "string"}}},
+    "outputSchema": {"type": "object", "properties": {"forecast": {"type": "array"}}},
     "status": "active"
   }
 ]
@@ -662,18 +662,18 @@ curl -X GET ${BASE_URL}/mcp/servers/1/capabilities -H "Authorization: Bearer <to
 
 基路径：`/api/v1/mcp/servers/{id}/auth`
 
-当 MCP Server 的 `auth_type` 需要用户介入（如 OAuth2 授权、用户级 API Key 等）时，通过此模块管理认证凭证。
+当 MCP Server 的 `authType` 需要用户介入（如 OAuth2 授权、用户级 API Key 等）时，通过此模块管理认证凭证。
 
-> **与 auth_config 的关系**：
-> - `auth_config`：服务器级配置——OAuth2 端点、客户端凭证、Key 格式要求等（管理员注册时填写）
+> **与 authConfig 的关系**：
+> - `authConfig`：服务器级配置——OAuth2 端点、客户端凭证、Key 格式要求等（管理员注册时填写）
 > - 本模块：租户/用户级凭证——实际的 access_token、用户自己的 API Key 等（使用者授权时填写）
 
 ### 3.1 发起认证
 
 `POST /api/v1/mcp/servers/{id}/auth`
 
-根据 `auth_type` 行为不同：
-- **OAUTH2**：返回 `302` 重定向到第三方授权页面（基于 `auth_config` 中的 OAuth2 配置）
+根据 `authType` 行为不同：
+- **OAUTH2**：返回 `302` 重定向到第三方授权页面（基于 `authConfig` 中的 OAuth2 配置）
 - **其他类型**：直接保存凭证，返回 JSON
 
 **入参**：
@@ -684,7 +684,7 @@ curl -X GET ${BASE_URL}/mcp/servers/1/capabilities -H "Authorization: Bearer <to
 | `returnUrl` | `string` | 否 | OAuth2 授权后回跳的前端 URL |
 | `credentials` | `map` | 条件必填 | 认证凭证（非 OAuth2 类型必填） |
 
-`credentials` 格式与 `auth_config` 相同（见 2.6），但这里填的是**用户实际的密钥/凭证**，而非服务器配置。
+`credentials` 格式与 `authConfig` 相同（见 2.6），但这里填的是**用户实际的密钥/凭证**，而非服务器配置。
 
 **出参（非 OAuth2）**：`success`、`connectionId`、`message`
 
@@ -781,7 +781,7 @@ curl -X DELETE "${BASE_URL}/mcp/servers/2/auth?connectionId=12345" \
 
 **处理流程**：
 1. 用 `state` 从 Redis 查找上下文（serverId、tenantId、userId、returnUrl、code_verifier）
-2. 从 `governance_mcp_servers.auth_config` 读取 OAuth2 配置（tokenUrl、clientId 等）
+2. 从 `governance_mcp_servers.authConfig` 读取 OAuth2 配置（tokenUrl、clientId 等）
 3. 用 `code` + `code_verifier`（如启用 PKCE）交换 access_token / refresh_token
 4. 保存凭证到连接记录
 5. 302 重定向回前端
@@ -796,7 +796,7 @@ curl -X DELETE "${BASE_URL}/mcp/servers/2/auth?connectionId=12345" \
 ```
 前端点击"授权连接"
   → POST /mcp/servers/{id}/auth (returnUrl=前端页面)
-  → 后端从 governance_mcp_servers.auth_config 读取 OAuth2 配置
+  → 后端从 governance_mcp_servers.authConfig 读取 OAuth2 配置
   → 生成 state + code_verifier(如启用 PKCE), 存 Redis(TTL 10min)
   → 302 → 第三方授权页面
   → 用户授权
@@ -846,7 +846,7 @@ curl -X DELETE "${BASE_URL}/mcp/servers/2/auth?connectionId=12345" \
 |--------|------|------|------|
 | `title` | `string` | 否 | 会话标题（不传时后端可自动生成） |
 
-**出参**：`session_id`、`created_at`
+**出参**：`sessionId`、`createdAt`
 
 ```bash
 curl -X POST ${BASE_URL}/sessions \
@@ -857,10 +857,10 @@ curl -X POST ${BASE_URL}/sessions \
 
 ```json
 {
-  "session_id": 10001,
+  "sessionId": 10001,
   "title": "天气查询",
   "status": "active",
-  "created_at": "2026-02-13T10:00:00Z"
+  "createdAt": "2026-02-13T10:00:00Z"
 }
 ```
 
@@ -891,20 +891,20 @@ curl -X GET "${BASE_URL}/sessions?status=active" \
 {
   "items": [
     {
-      "session_id": 10001,
+      "sessionId": 10001,
       "title": "天气查询",
       "status": "active",
-      "message_count": 4,
-      "last_message_at": "2026-02-13T10:05:00Z",
-      "created_at": "2026-02-13T10:00:00Z"
+      "messageCount": 4,
+      "lastMessageAt": "2026-02-13T10:05:00Z",
+      "createdAt": "2026-02-13T10:00:00Z"
     },
     {
-      "session_id": 10002,
+      "sessionId": 10002,
       "title": "代码分析",
       "status": "active",
-      "message_count": 2,
-      "last_message_at": "2026-02-13T11:00:00Z",
-      "created_at": "2026-02-13T10:30:00Z"
+      "messageCount": 2,
+      "lastMessageAt": "2026-02-13T11:00:00Z",
+      "createdAt": "2026-02-13T10:30:00Z"
     }
   ],
   "total": 2,
@@ -925,7 +925,7 @@ curl -X GET "${BASE_URL}/sessions?status=active" \
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| `session_id` | `long` | 是 | 会话 ID |
+| `sessionId` | `long` | 是 | 会话 ID |
 
 **出参**：会话元信息 + 消息列表
 
@@ -936,45 +936,45 @@ curl -X GET ${BASE_URL}/sessions/10001 \
 
 ```json
 {
-  "session_id": 10001,
+  "sessionId": 10001,
   "title": "天气查询",
   "status": "active",
-  "created_at": "2026-02-13T10:00:00Z",
+  "createdAt": "2026-02-13T10:00:00Z",
   "messages": [
     {
       "id": 1001,
       "role": "user",
       "content": "查询 San Francisco 三日天气",
-      "task_id": 20001,
-      "created_at": "2026-02-13T10:01:00Z"
+      "taskId": 20001,
+      "createdAt": "2026-02-13T10:01:00Z"
     },
     {
       "id": 1002,
       "role": "assistant",
       "content": "San Francisco 未来三天天气：周一晴 15°C，周二多云 13°C，周三小雨 11°C。",
-      "task_id": 20001,
-      "created_at": "2026-02-13T10:01:05Z"
+      "taskId": 20001,
+      "createdAt": "2026-02-13T10:01:05Z"
     },
     {
       "id": 1003,
       "role": "user",
       "content": "那 New York 呢？",
-      "task_id": 20002,
-      "created_at": "2026-02-13T10:05:00Z"
+      "taskId": 20002,
+      "createdAt": "2026-02-13T10:05:00Z"
     },
     {
       "id": 1004,
       "role": "assistant",
       "content": null,
-      "task_id": 20002,
-      "task_status": "RUNNING",
-      "created_at": "2026-02-13T10:05:01Z"
+      "taskId": 20002,
+      "taskStatus": "RUNNING",
+      "createdAt": "2026-02-13T10:05:01Z"
     }
   ]
 }
 ```
 
-> **说明**：当 `role` 为 `assistant` 且关联的 Task 尚未完成时，`content` 为 `null`，`task_status` 反映当前执行状态。
+> **说明**：当 `role` 为 `assistant` 且关联的 Task 尚未完成时，`content` 为 `null`，`taskStatus` 反映当前执行状态。
 
 ---
 
@@ -1062,34 +1062,34 @@ curl -X GET "${BASE_URL}/tasks" -H "Authorization: Bearer <token>"
 
 `POST /api/v1/tasks`
 
-提交用户消息，触发完整执行管线（Governance → Decision → Reconcile）。若不传 `session_id`，自动创建新会话。
+提交用户消息，触发完整执行管线（Governance → Decision → Reconcile）。若不传 `sessionId`，自动创建新会话。
 
 **入参**：
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | `message` | `string` | 是 | 用户消息内容（执行目标描述） |
-| `session_id` | `long` | 否 | 关联的会话 ID；不传则自动创建新会话 |
+| `sessionId` | `long` | 否 | 关联的会话 ID；不传则自动创建新会话 |
 
-**出参**：`task_id`、`session_id`、`status`
+**出参**：`taskId`、`sessionId`、`status`
 
 ```bash
 curl -X POST ${BASE_URL}/tasks \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"message": "查询 San Francisco 三日天气", "session_id": 10001}'
+  -d '{"message": "查询 San Francisco 三日天气", "sessionId": 10001}'
 ```
 
 ```json
 {
-  "task_id": 20001,
-  "session_id": 10001,
+  "taskId": 20001,
+  "sessionId": 10001,
   "status": "CREATED"
 }
 ```
 
 > **后端处理流程**：
-> 1. 若无 `session_id`，创建新的 Session 并返回
+> 1. 若无 `sessionId`，创建新的 Session 并返回
 > 2. 写入用户消息到 `ingress_messages`
 > 3. 加载会话上下文（历史消息 + 上下文策略）
 > 4. 构建 Business Contract（intent + context + constraints）
@@ -1110,7 +1110,7 @@ curl -X POST ${BASE_URL}/tasks \
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| `task_id` | `long` | 是 | 任务 ID |
+| `taskId` | `long` | 是 | 任务 ID |
 
 **请求**：
 
@@ -1120,107 +1120,144 @@ curl -N -X GET ${BASE_URL}/tasks/20001/events \
   -H "Accept: text/event-stream"
 ```
 
-**连接行为**：
+**连接行为（事件重放机制）**：
 
-SSE 连接建立时，服务端会先查询任务当前状态，根据情况推送 catch-up 事件：
+SSE 连接建立时，服务端会查询任务当前状态，**重放正常事件序列**（与实时推送的事件类型完全一致），客户端无需区分"重放"和"实时"：
 
 | 连接时任务状态 | 服务端行为 |
 |---------------|-----------|
-| `COMPLETED` / `FAILED` / `CANCELLED` | 立即推送终态事件（含完整 `steps` 历史），然后关闭连接 |
-| `CREATED` / `RUNNING` | 推送 `task.catchup` 事件（含已完成步骤历史），然后持续推送后续实时事件 |
+| `CREATED` | 推送 `task.created` + `task.compiling`，然后持续推送后续实时事件 |
+| `RUNNING` | 重放 `task.created` → `task.started` → 已完成步骤的 `step.started`/`step.completed` → 正在执行步骤的 `step.started`，然后持续推送后续实时事件 |
+| `COMPLETED` / `FAILED` / `CANCELLED` | 重放完整事件序列（含所有步骤和终态事件），然后关闭连接 |
 
-> 这意味着客户端可以在任何时候连接 SSE，无论任务刚提交还是已经执行到一半，都能收到完整的状态信息。
+> 客户端可以在任何时候连接 SSE，无论任务刚提交还是已经执行到一半，收到的事件类型和格式都完全一致——只需要一套渲染逻辑。
 
 **事件类型与数据格式**：
 
 | event 类型 | 说明 | data 主要字段 |
 |------------|------|---------------|
-| `task.catchup` | 连接时的状态快照（含步骤历史） | `task_id`, `status`, `current_step`, `steps` |
-| `task.compiling` | Decision Plane 编译 EB 中 | `task_id`, `message` |
-| `task.compiled` | EB 编译完成，步骤已冻结 | `task_id`, `steps_total` |
-| `step.started` | 步骤开始执行 | `task_id`, `step_sequence`, `capability` |
-| `step.completed` | 步骤执行成功 | `task_id`, `step_sequence` |
-| `step.failed` | 步骤执行失败 | `task_id`, `step_sequence`, `error` |
-| `task.completed` | 任务全部完成（含步骤历史） | `task_id`, `status`, `result`, `steps` |
-| `task.failed` | 任务失败终止（含步骤历史） | `task_id`, `status`, `error`, `steps` |
-| `task.cancelled` | 任务已取消 | `task_id`, `status` |
+| `task.created` | 任务已创建 | `taskId`, `sessionId`, `intent` |
+| `task.compiling` | Decision Plane 编译 EB 中 | `taskId`, `message` |
+| `task.started` | EB 编译完成，执行开始（含步骤计划） | `taskId`, `stepsTotal`, `steps[]` |
+| `step.started` | 步骤开始执行 | `taskId`, `stepSequence`, `capability`, `inputs` |
+| `step.completed` | 步骤执行成功 | `taskId`, `stepSequence`, `result` |
+| `step.failed` | 步骤执行失败 | `taskId`, `stepSequence`, `error` |
+| `task.completed` | 任务全部完成 | `taskId`, `result` |
+| `task.failed` | 任务失败终止 | `taskId`, `error` |
+| `task.cancelled` | 任务已取消 | `taskId` |
 | `heartbeat` | 心跳保活（约 15s 间隔） | `timestamp` |
 
 **事件流示例（正常流程 — 提交后立即连接）**：
 
 ```
-event: task.catchup
-data: {"task_id":20001,"status":"CREATED","current_step":0,"steps":[]}
+event: task.created
+data: {"taskId":20001,"sessionId":10001,"intent":"查询 San Francisco 三日天气"}
 
 event: task.compiling
-data: {"task_id":20001,"message":"Parsing intent and compiling execution blueprint..."}
+data: {"taskId":20001,"message":"Parsing intent and compiling execution blueprint..."}
 
-event: task.compiled
-data: {"task_id":20001,"steps_total":2}
-
-event: step.started
-data: {"task_id":20001,"step_sequence":1,"capability":"weather_tool.get_forecast"}
-
-event: step.completed
-data: {"task_id":20001,"step_sequence":1}
+event: task.started
+data: {"taskId":20001,"stepsTotal":2,"steps":[{"sequence":1,"type":"EXECUTION","capability":"weather_tool.get_forecast","dependsOn":[]},{"sequence":2,"type":"LLM_RESPONSE","capability":"llm.respond","dependsOn":[1]}]}
 
 event: step.started
-data: {"task_id":20001,"step_sequence":2,"capability":"llm.respond"}
+data: {"taskId":20001,"stepSequence":1,"capability":"weather_tool.get_forecast","inputs":{"city":"San Francisco","days":3}}
 
 event: step.completed
-data: {"task_id":20001,"step_sequence":2}
+data: {"taskId":20001,"stepSequence":1,"result":"{\"temperature\":\"15°C\",\"conditions\":\"partly cloudy\"}"}
+
+event: step.started
+data: {"taskId":20001,"stepSequence":2,"capability":"llm.respond","inputs":{"prompt":"Summarize the weather..."}}
+
+event: step.completed
+data: {"taskId":20001,"stepSequence":2,"result":"San Francisco 未来三天天气：..."}
 
 event: task.completed
-data: {"task_id":20001,"status":"COMPLETED","result":"San Francisco 未来三天天气...","steps":[...]}
+data: {"taskId":20001,"result":"San Francisco 未来三天天气：..."}
 
 ```
 
 **事件流示例（中途连接 — 任务正在执行第 2 步）**：
 
+> 客户端收到的是与实时流完全相同的事件类型，只是已完成的事件会被一次性重放。
+
 ```
-event: task.catchup
-data: {"task_id":20001,"status":"RUNNING","current_step":2,"steps":[{"sequence":1,"capability":"weather_tool.get_forecast","status":"COMPLETED","startedAt":"...","completedAt":"..."},{"sequence":2,"capability":"llm.respond","status":"RUNNING","startedAt":"...","completedAt":null}]}
+event: task.created
+data: {"taskId":20001,"intent":"查询 San Francisco 三日天气"}
+
+event: task.started
+data: {"taskId":20001,"stepsTotal":2,"steps":[{"sequence":1,"type":"EXECUTION","capability":"weather_tool.get_forecast","dependsOn":[]},{"sequence":2,"type":"LLM_RESPONSE","capability":"llm.respond","dependsOn":[1]}]}
+
+event: step.started
+data: {"taskId":20001,"stepSequence":1,"capability":"weather_tool.get_forecast"}
 
 event: step.completed
-data: {"task_id":20001,"step_sequence":2}
+data: {"taskId":20001,"stepSequence":1,"result":"{\"temperature\":\"15°C\",...}"}
+
+event: step.started
+data: {"taskId":20001,"stepSequence":2,"capability":"llm.respond"}
+
+event: step.completed
+data: {"taskId":20001,"stepSequence":2,"result":"San Francisco 未来三天天气：..."}
 
 event: task.completed
-data: {"task_id":20001,"status":"COMPLETED","result":"...","steps":[...]}
+data: {"taskId":20001,"result":"San Francisco 未来三天天气：..."}
 
 ```
 
 **事件流示例（迟连接 — 任务已完成）**：
 
-```
-event: task.completed
-data: {"task_id":20001,"status":"COMPLETED","result":"San Francisco 未来三天天气...","steps":[{"sequence":1,"capability":"weather_tool.get_forecast","status":"COMPLETED",...},{"sequence":2,"capability":"llm.respond","status":"COMPLETED",...}]}
+> 完整重放所有事件，然后关闭连接。
 
 ```
-> 任务已结束时，SSE 连接推送终态事件后立即关闭。
+event: task.created
+data: {"taskId":20001,"intent":"查询 San Francisco 三日天气"}
+
+event: task.started
+data: {"taskId":20001,"stepsTotal":2,"steps":[...]}
+
+event: step.started
+data: {"taskId":20001,"stepSequence":1,"capability":"weather_tool.get_forecast"}
+
+event: step.completed
+data: {"taskId":20001,"stepSequence":1,"result":"{...}"}
+
+event: step.started
+data: {"taskId":20001,"stepSequence":2,"capability":"llm.respond"}
+
+event: step.completed
+data: {"taskId":20001,"stepSequence":2,"result":"San Francisco 未来三天天气：..."}
+
+event: task.completed
+data: {"taskId":20001,"result":"San Francisco 未来三天天气：..."}
+
+```
 
 **事件流示例（失败场景）**：
 
 ```
-event: task.catchup
-data: {"task_id":20002,"status":"CREATED","current_step":0,"steps":[]}
+event: task.created
+data: {"taskId":20002,"intent":"查询天气"}
 
-event: task.compiled
-data: {"task_id":20002,"steps_total":2}
+event: task.compiling
+data: {"taskId":20002,"message":"Parsing intent and compiling execution blueprint..."}
+
+event: task.started
+data: {"taskId":20002,"stepsTotal":2,"steps":[...]}
 
 event: step.started
-data: {"task_id":20002,"step_sequence":1,"capability":"weather_tool.get_forecast"}
+data: {"taskId":20002,"stepSequence":1,"capability":"weather_tool.get_forecast","inputs":{"city":"San Francisco"}}
 
 event: step.failed
-data: {"task_id":20002,"step_sequence":1,"error":"Connection timeout to weather service"}
+data: {"taskId":20002,"stepSequence":1,"error":"Connection timeout to weather service"}
 
 event: task.failed
-data: {"task_id":20002,"status":"FAILED","error":"Step 1 failed: Connection timeout to weather service","steps":[...]}
+data: {"taskId":20002,"error":"Step 1 failed: Connection timeout to weather service"}
 
 ```
 
 > **说明**：
 > - 任务进入终态（`task.completed` / `task.failed` / `task.cancelled`）推送后，服务端关闭 SSE 连接
-> - 客户端可在任何时间点连接，都能通过 catch-up 获得完整状态
+> - 客户端可在任何时间点连接，服务端会重放完整的事件历史（使用与实时推送相同的事件类型），无需特殊处理
 > - 建议客户端做好长连接管理和断线重连
 
 ---
@@ -1235,7 +1272,7 @@ data: {"task_id":20002,"status":"FAILED","error":"Step 1 failed: Connection time
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| `task_id` | `long` | 是 | 任务 ID |
+| `taskId` | `long` | 是 | 任务 ID |
 
 **出参**：任务元信息 + EB 步骤列表及状态
 
@@ -1246,33 +1283,31 @@ curl -X GET ${BASE_URL}/tasks/20001 \
 
 ```json
 {
-  "task_id": 20001,
-  "session_id": 10001,
+  "taskId": 20001,
+  "sessionId": 10001,
   "status": "RUNNING",
-  "current_step_id": 2,
-  "created_at": "2026-02-13T10:01:00Z",
-  "started_at": "2026-02-13T10:01:01Z",
-  "completed_at": null,
+  "currentStepSequence": 2,
+  "createdAt": "2026-02-13T10:01:00Z",
+  "startedAt": "2026-02-13T10:01:01Z",
+  "completedAt": null,
   "steps": [
     {
-      "step_id": 1,
-      "type": "EXECUTION",
       "sequence": 1,
+      "type": "EXECUTION",
       "capability": "weather_tool.get_forecast",
-      "depends_on": [],
+      "dependsOn": [],
       "status": "COMPLETED",
-      "started_at": "2026-02-13T10:01:01Z",
-      "completed_at": "2026-02-13T10:01:03Z"
+      "startedAt": "2026-02-13T10:01:01Z",
+      "completedAt": "2026-02-13T10:01:03Z"
     },
     {
-      "step_id": 2,
-      "type": "EXECUTION",
       "sequence": 2,
+      "type": "EXECUTION",
       "capability": "llm.summarize",
-      "depends_on": [1],
+      "dependsOn": [1],
       "status": "RUNNING",
-      "started_at": "2026-02-13T10:01:03Z",
-      "completed_at": null
+      "startedAt": "2026-02-13T10:01:03Z",
+      "completedAt": null
     }
   ]
 }
@@ -1290,7 +1325,7 @@ curl -X GET ${BASE_URL}/tasks/20001 \
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| `task_id` | `long` | 是 | 任务 ID |
+| `taskId` | `long` | 是 | 任务 ID |
 
 ```bash
 curl -X POST ${BASE_URL}/tasks/20001/cancel \
@@ -1299,7 +1334,7 @@ curl -X POST ${BASE_URL}/tasks/20001/cancel \
 
 ```json
 {
-  "task_id": 20001,
+  "taskId": 20001,
   "status": "CANCELLED"
 }
 ```

@@ -46,7 +46,7 @@ export function MessagePane({ shellLogs, palette, themeName }: MessagePaneProps)
         <box flexDirection="column" gap={1}>
           <GreetingBanner themeName={themeName} />
           <text selectable fg={palette.textMuted} attributes={TextAttributes.DIM}>Interactive shell mode. API-first, no local mock runtime.</text>
-          <text selectable fg={palette.textMuted} attributes={TextAttributes.DIM}>Commands: /login, /mcp, /theme, /logout, /exit, theme/mcp/session/run ...</text>
+          <text selectable fg={palette.textMuted} attributes={TextAttributes.DIM}>Commands: /login, /mcp, /theme, /logout, /exit, auth/theme/mcp/session/run ...</text>
           <box flexDirection="column" gap={1}>
             <text selectable fg={palette.accentInfo}>Command Log</text>
             {renderShellLogLines()}

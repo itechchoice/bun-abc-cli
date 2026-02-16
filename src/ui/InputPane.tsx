@@ -17,6 +17,7 @@ interface InputPaneProps {
   draft: string;
   palette: ThemePalette;
   pendingRequestCount: number;
+  activeSessionId: number | null;
   shellHint?: string | null;
   passwordMode?: boolean;
   historyBrowsing?: boolean;
@@ -32,17 +33,21 @@ interface InputPaneProps {
   onSubmit: (value?: string) => Promise<void>;
 }
 
-function getPlaceholder(shellHint: string | null | undefined): string {
+function getPlaceholder(shellHint: string | null | undefined, activeSessionId: number | null): string {
   if (shellHint) {
     return shellHint;
   }
-  return "Type /login, /mcp, /theme, or theme/mcp/session/run commands.";
+  if (activeSessionId !== null) {
+    return `Active session ${activeSessionId}. run submit will use this session by default.`;
+  }
+  return "Use session use <id> before run commands. Type /login, /mcp, /theme, or auth/theme/mcp/session/run commands.";
 }
 
 export function InputPane({
   draft,
   palette,
   pendingRequestCount,
+  activeSessionId,
   shellHint = null,
   passwordMode = false,
   historyBrowsing = false,
@@ -184,7 +189,7 @@ export function InputPane({
           <input
             ref={inputRef}
             value={draft}
-            placeholder={getPlaceholder(shellHint)}
+            placeholder={getPlaceholder(shellHint, activeSessionId)}
             onInput={onInput}
             onSubmit={handleSubmit}
             focused
@@ -203,6 +208,10 @@ export function InputPane({
       </box>
 
       <box flexDirection="column" gap={1}>
+        {activeSessionId !== null ? (
+          <text fg={palette.accentSuccess}>{`Active session: ${activeSessionId} (run submit defaults to this session)`}</text>
+        ) : null}
+
         <text fg={palette.textMuted} attributes={TextAttributes.DIM}>
           {showThemeMenu
             ? "Use Up/Down to choose theme, Enter to apply, Esc to close"

@@ -22,6 +22,8 @@ export function StatusBar({
   activeCommandLabel,
 }: StatusBarProps) {
   const busyLabel = activeCommandLabel ? `busy:${activeCommandLabel}` : "busy:-";
+  const sessionLabel = activeSessionId === null ? "session: none" : `session: ${activeSessionId} (active)`;
+  const sessionColor = activeSessionId === null ? palette.accentWarning : palette.accentSuccess;
   return (
     <box
       flexDirection="row"
@@ -31,9 +33,15 @@ export function StatusBar({
       backgroundColor={palette.statusBg}
       flexShrink={0}
     >
-      <text fg={palette.accentInfo}>{`api:${apiLabel}`}</text>
+      <box flexDirection="row" gap={0}>
+        <text fg={sessionColor}>{`${sessionLabel} | `}</text>
+        <text fg={palette.accentInfo}>{`api:${apiLabel}`}</text>
+      </box>
       <text fg={authOn ? palette.accentSuccess : palette.accentError}>{`auth:${authOn ? "on" : "off"}`}</text>
-      <text fg={palette.accentBrand}>{`theme:${themeName} | session:${activeSessionId ?? "-"} | stream:${streamState} | history:${historyCount} | ${busyLabel}`}</text>
+      <box flexDirection="row" gap={0}>
+        <text fg={palette.accentBrand}>{`theme:${themeName} | `}</text>
+        <text fg={palette.accentBrand}>{`stream:${streamState} | history:${historyCount} | ${busyLabel}`}</text>
+      </box>
     </box>
   );
 }

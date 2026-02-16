@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { clearAuthToken, loadAuthToken, saveAuthToken } from "./auth-token-store";
+import { clearAuthToken, loadAuthSession, loadAuthToken, saveAuthSession, saveAuthToken } from "./auth-token-store";
 
 const allocatedDirs: string[] = [];
 
@@ -22,7 +22,22 @@ afterEach(async () => {
 });
 
 describe("auth-token-store", () => {
-  test("saves and loads token", async () => {
+  test("saves and loads auth session", async () => {
+    await withTempStoreHome();
+    await saveAuthSession({ accessToken: "mock-token-demo", refreshToken: "mock-refresh-demo" });
+    const session = await loadAuthSession();
+    expect(session).toEqual({ accessToken: "mock-token-demo", refreshToken: "mock-refresh-demo" });
+  });
+
+  test("loads legacy token-only format", async () => {
+    const dir = await withTempStoreHome();
+    const tokenPath = path.join(dir, "auth-token.json");
+    await writeFile(tokenPath, `${JSON.stringify({ token: "legacy-token", savedAt: Date.now() }, null, 2)}\n`, "utf8");
+    const session = await loadAuthSession();
+    expect(session).toEqual({ accessToken: "legacy-token" });
+  });
+
+  test("saves and loads token wrapper", async () => {
     await withTempStoreHome();
     await saveAuthToken("mock-token-demo");
     const token = await loadAuthToken();

@@ -63,4 +63,38 @@ describe("PlatformApiClient", () => {
       content_type: "text/html",
     });
   });
+
+  test("calls auth refresh with refresh_token body", async () => {
+    let postedBody = "";
+    globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+      postedBody = String(init?.body ?? "");
+      return new Response(JSON.stringify({ access_token: "new-token" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as FetchImpl;
+
+    const client = new PlatformApiClient("https://example.com/api/v1");
+    const response = await client.refreshToken("refresh-123");
+
+    expect(response.ok).toBe(true);
+    expect(JSON.parse(postedBody)).toEqual({ refresh_token: "refresh-123" });
+  });
+
+  test("builds task list query parameters", async () => {
+    let requestedUrl = "";
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      requestedUrl = typeof input === "string" ? input : input.toString();
+      return new Response(JSON.stringify({ items: [], total: 0, page: 1, size: 20 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as FetchImpl;
+
+    const client = new PlatformApiClient("https://example.com/api/v1");
+    const response = await client.listTasks("token-1", { status: "RUNNING", page: 2, size: 10 });
+
+    expect(response.ok).toBe(true);
+    expect(requestedUrl).toContain("/tasks?status=RUNNING&page=2&size=10");
+  });
 });

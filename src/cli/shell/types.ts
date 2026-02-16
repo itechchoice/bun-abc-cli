@@ -8,19 +8,20 @@ export interface ShellLogEntry {
 }
 
 export interface AuthSessionState {
-  token: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
   username: string | null;
   loginAt: number | null;
 }
 
 export type LoginStep = "idle" | "await_username" | "await_password";
 
-export type SlashCommandName = "login" | "logout" | "mcp" | "theme" | "exit";
+export type SlashCommandName = "login" | "logout" | "mcp" | "sessions" | "theme" | "exit";
 
 export interface ParsedCommandInput {
   kind: "command";
   raw: string;
-  group: "mcp" | "session" | "run" | "theme";
+  group: "auth" | "mcp" | "session" | "run" | "theme";
   command: string;
   subcommand?: string;
   positionals: string[];

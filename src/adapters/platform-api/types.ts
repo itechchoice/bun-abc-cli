@@ -36,45 +36,58 @@ export interface LoginResponse {
   refresh_token?: string;
 }
 
+export interface RefreshTokenRequest {
+  refresh_token: string;
+}
+
+export interface RefreshTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_expires_in: number;
+}
+
 export type McpAuthType = "NONE" | "API_KEY" | "BASIC" | "OAUTH2" | "JWT" | "CUSTOM";
 
 export interface McpServer {
   id: number;
-  server_code: string;
+  serverCode: string;
   version: string;
   name: string;
   description?: string;
   endpoint: string;
-  auth_type: McpAuthType;
-  auth_config?: unknown;
+  authType: McpAuthType;
+  authConfig?: unknown;
   status: string;
-  cache_version?: number;
-  last_sync_at?: string;
-  created_at?: string;
-  updated_at?: string;
+  connectionStatus?: string | null;
+  cacheVersion?: number;
+  lastSyncAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateMcpRequest {
-  server_code: string;
+  serverCode: string;
   version: string;
   name: string;
   description?: string;
   endpoint: string;
-  auth_type: McpAuthType;
-  auth_config: unknown;
+  authType: McpAuthType;
+  authConfig: unknown;
 }
 
 export interface UpdateMcpRequest {
   name?: string;
   description?: string;
   endpoint?: string;
-  auth_type?: McpAuthType;
-  auth_config?: unknown;
+  authType?: McpAuthType;
+  authConfig?: unknown;
 }
 
 export interface McpSyncResponse {
-  cache_version: number;
-  capabilities_count: number;
+  cacheVersion: number;
+  capabilitiesCount: number;
   diff: {
     added: string[];
     removed: string[];
@@ -86,8 +99,8 @@ export interface McpCapability {
   id: number;
   name: string;
   description?: string;
-  input_schema?: unknown;
-  output_schema?: unknown;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
   status?: string;
 }
 
@@ -113,12 +126,12 @@ export interface McpAuthStatusResponse {
 }
 
 export interface SessionItem {
-  session_id: number;
+  sessionId: number;
   title?: string;
   status?: string;
-  message_count?: number;
-  last_message_at?: string;
-  created_at?: string;
+  messageCount?: number;
+  lastMessageAt?: string;
+  createdAt?: string;
 }
 
 export interface SessionListResponse {
@@ -132,65 +145,71 @@ export interface SessionDetailMessage {
   id: number;
   role: string;
   content: string | null;
-  task_id?: number;
-  task_status?: string;
-  created_at?: string;
+  taskId?: number;
+  taskStatus?: string;
+  createdAt?: string;
 }
 
 export interface SessionDetailResponse {
-  session_id: number;
+  sessionId: number;
   title?: string;
   status?: string;
-  created_at?: string;
+  createdAt?: string;
   messages: SessionDetailMessage[];
 }
 
 export interface CreateTaskResponse {
-  task_id: number;
-  session_id: number;
+  taskId: number;
+  sessionId: number;
   status: string;
 }
 
 export interface TaskStep {
-  step_id: number;
+  stepId: number;
   type?: string;
   sequence?: number;
   capability?: string;
-  depends_on?: number[];
+  dependsOn?: number[];
   status?: string;
-  started_at?: string | null;
-  completed_at?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
 }
 
 export interface TaskDetailResponse {
-  task_id: number;
-  session_id: number;
+  taskId: number;
+  sessionId: number;
   status: string;
-  current_step_id?: number | null;
-  created_at?: string;
-  started_at?: string | null;
-  completed_at?: string | null;
+  currentStepSequence?: number | null;
+  createdAt?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
   steps?: TaskStep[];
   result?: string;
   error?: string;
 }
 
-export interface TaskArtifact {
-  id: number;
-  name: string;
-  uri: string;
-  content_type?: string;
-  step_id?: number;
-  created_at?: string;
+export interface TaskListItem {
+  taskId: number;
+  sessionId: number;
+  message?: string;
+  status: string;
+  currentStepSequence?: number | null;
+  result?: string | null;
+  error?: string | null;
+  createdAt?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
 }
 
-export interface TaskArtifactsResponse {
-  task_id: number;
-  artifacts: TaskArtifact[];
+export interface TaskListResponse {
+  items: TaskListItem[];
+  total: number;
+  page: number;
+  size: number;
 }
 
 export interface CancelTaskResponse {
-  task_id: number;
+  taskId: number;
   status: string;
 }
 

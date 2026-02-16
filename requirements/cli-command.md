@@ -12,22 +12,30 @@ abc
 
 - `/login`：交互式登录（用户名 + 密码）
 - `/mcp`：等价 `mcp list`
+- `/sessions`：等价 `session list`
 - `/logout`：清理本地 token
 - `/exit`：退出 abc-cli
 
 ## 登录持久化策略
 
-- 仅持久化 `access_token`，不持久化用户名与密码。
+- 持久化 `access_token` 与 `refresh_token`，不持久化用户名与密码。
 - 本地路径：`~/.abc-cli/auth-token.json`
-- 启动时自动用受保护接口探活 token：
-  - 通过则恢复登录态
-  - 失败则清除 token 并提示重新 `/login`
+- 启动时仅做本地 token 过期检查（不主动请求后端）：
+  - 未过期则恢复登录态
+  - 已过期则清除 token 并提示重新 `/login`
+- 支持 `auth refresh` 手动刷新 token。
+- 任意受保护请求遇到 401 时，CLI 自动尝试 refresh 并重试一次。
 - `/logout` 必须删除本地 token。
 - 权限要求：目录 `700`，文件 `600`。
+
+## Auth 命令
+
+- `auth refresh`
 
 ## MCP 命令
 
 - `mcp add --server-code <code> --url <endpoint> --version <v> [--name <name>] [--description <text>] [--auth-type <NONE|API_KEY|BASIC|OAUTH2|JWT|CUSTOM>] [--auth-config-json <json>]`
+- `mcp add --payload-json <json>`
 - `mcp list [--server-code <code>] [--status <active|inactive>]`
 - `mcp get <id>`
 - `mcp update --id <id> [--name <name>] [--description <text>] [--url <endpoint>] [--auth-type <...>] [--auth-config-json <json>]`
@@ -35,19 +43,30 @@ abc
 - `mcp sync --id <id>`
 - `mcp capabilities --id <id>`
 - `mcp auth start --id <id> [--connection-name <name>] [--return-url <url>] [--credentials-json <json>]`
+- `mcp auth start --id <id> --payload-json <json>`
 - `mcp auth status --id <id>`
 - `mcp auth delete --id <id> [--connection-id <id>]`
 
+自动动作：
+- `mcp auth start` 返回 `success=true` 后，CLI 自动执行一次 `mcp sync --id <id>`。
+
+参数规则：
+- `mcp add --payload-json` 与 `--server-code/--url/--version/...` 互斥。
+- `mcp auth start --payload-json` 与 `--connection-name/--return-url/--credentials-json` 互斥。
+
 默认值：
-- `name = server_code`
-- `auth_type = NONE`
-- `auth_config = {}`
+- `name = serverCode`
+- `authType = NONE`
+- `authConfig = {}`
 
 ## Session 命令
 
 - `session create [--title <text>]`
 - `session list [--status <active|archived>] [--page <n>] [--size <n>]`
-- `session get <session_id>`
+- `session get <sessionId>`
+- `session use <sessionId>`
+- `session current`
+- `session leave`
 
 ## Theme 命令
 
@@ -67,10 +86,15 @@ abc
 ## Run 命令
 
 - `run submit --objective <text> [--session-id <id>]`
+- `run list [--status <status>] [--page <n>] [--size <n>]`
 - `run status <task_id>`
 - `run events --follow <task_id>`
-- `run artifacts <task_id>`
 - `run cancel <task_id>`
+
+会话强约束：
+- 执行 `run *` 前必须存在 active session（通过 `session use` 或 `session create` 建立）。
+- `run submit` 若显式传 `--session-id`，必须与 active session 一致。
+- `run status` / `run events` / `run cancel` 会校验 task 的 `sessionId` 与 active session 一致，不一致时提示先 `session use <id>`。
 
 ## 输出规范（强约束）
 

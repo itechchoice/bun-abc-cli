@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlatformApiClient } from "../adapters/platform-api/client";
 import { SseHttpError, subscribeTaskEvents } from "../adapters/platform-api/sse";
 import type { ApiResponse, McpAuthType } from "../adapters/platform-api/types";
-import { clearAuthToken, loadAuthToken, saveAuthToken } from "../cli/shell/auth-token-store";
+import { clearAuthToken, loadAuthSession, saveAuthSession } from "../cli/shell/auth-token-store";
 import { parseShellInput, readStringOption } from "../cli/shell/parser";
 import type { AuthSessionState, LoginStep, ParsedCommandInput, ParsedShellInput, ShellLogEntry, ShellLogLevel } from "../cli/shell/types";
 import { THEME_NAMES, isThemeName } from "../theme/themes";
@@ -54,8 +54,30 @@ function readNumberField(input: unknown, key: string): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function readBooleanField(input: unknown, key: string): boolean | null {
+  if (!isRecord(input)) {
+    return null;
+  }
+  const value = input[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function readNumberFieldByKeys(input: unknown, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = readNumberField(input, key);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
 function readTaskStatus(input: unknown): string | null {
   return readStringField(input, "status");
+}
+
+function readTaskSessionId(input: unknown): number | null {
+  return readNumberFieldByKeys(input, ["sessionId", "session_id"]);
 }
 
 function isTerminalTaskStatus(status: string | null): boolean {
@@ -169,10 +191,29 @@ function isRetriableHttpStatus(status: number): boolean {
   return status >= 500 || RETRIABLE_HTTP_STATUSES.has(status);
 }
 
+function readJwtExpiryMs(token: string): number | null {
+  const parts = token.split(".");
+  if (parts.length < 2 || !parts[1]) {
+    return null;
+  }
+
+  try {
+    const payloadJson = Buffer.from(parts[1], "base64url").toString("utf8");
+    const payload = JSON.parse(payloadJson) as { exp?: unknown };
+    if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) {
+      return null;
+    }
+    return payload.exp * 1000;
+  } catch {
+    return null;
+  }
+}
+
 export function useShellCommandController(options: UseShellCommandControllerOptions) {
   const [logs, setLogs] = useState<ShellLogEntry[]>([]);
   const [authState, setAuthState] = useState<AuthSessionState>({
-    token: null,
+    accessToken: null,
+    refreshToken: null,
     username: null,
     loginAt: null,
   });
@@ -181,12 +222,12 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
   const [activeCommandLabel, setActiveCommandLabel] = useState<string | null>(null);
+  const [isFollowingEvents, setIsFollowingEvents] = useState(false);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
   const loginDraftRef = useRef<{ username: string | null }>({ username: null });
   const inFlightRef = useRef(false);
   const runningCommandRef = useRef<string | null>(null);
-  const followCommandLabelRef = useRef<string | null>(null);
   const followAbortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
   const themeWarningLoggedRef = useRef(false);
@@ -240,46 +281,128 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   }, [appendJsonBlock, appendLog]);
 
   const clearAuthState = useCallback(async () => {
-    setAuthState({ token: null, username: null, loginAt: null });
+    setAuthState({ accessToken: null, refreshToken: null, username: null, loginAt: null });
     await clearAuthToken();
   }, []);
 
-  const handleUnauthorized = useCallback(async (response: ApiResponse) => {
-    if (response.status !== 401) {
-      return;
+  const saveAndSetAuthState = useCallback(
+    async (next: { accessToken: string; refreshToken?: string | null; username?: string | null }) => {
+      const normalizedRefreshToken = next.refreshToken?.trim() ? next.refreshToken : undefined;
+      await saveAuthSession({
+        accessToken: next.accessToken,
+        ...(normalizedRefreshToken ? { refreshToken: normalizedRefreshToken } : {}),
+      });
+      setAuthState((prev) => ({
+        accessToken: next.accessToken,
+        refreshToken: normalizedRefreshToken ?? null,
+        username: next.username ?? prev.username ?? null,
+        loginAt: Date.now(),
+      }));
+    },
+    [],
+  );
+
+  const ensureLoggedIn = useCallback((): string => {
+    if (!authState.accessToken) {
+      throw new Error("Not logged in. Run /login first.");
     }
-    await clearAuthState();
-    appendLog("error", "Authorization expired or invalid (401). Local token cleared. Please run /login.");
-  }, [appendLog, clearAuthState]);
+    return authState.accessToken;
+  }, [authState.accessToken]);
+
+  const refreshAccessToken = useCallback(
+    async (reasonLabel = "Access token expired. Trying auth refresh...", clearWhenMissing = true): Promise<string | null> => {
+      const refreshToken = authState.refreshToken;
+      if (!refreshToken) {
+        if (clearWhenMissing) {
+          await clearAuthState();
+        }
+        appendLog("error", "No refresh_token found. Please run /login.");
+        return null;
+      }
+
+      appendLog("info", reasonLabel);
+      const refreshResponse = await trackRequest(() => options.apiClient.refreshToken(refreshToken));
+      printApiResponse(refreshResponse);
+
+      if (!refreshResponse.ok) {
+        await clearAuthState();
+        appendLog("error", "Token refresh failed. Please run /login.");
+        return null;
+      }
+
+      const nextAccessToken = readStringField(refreshResponse.body, "access_token");
+      const nextRefreshToken = readStringField(refreshResponse.body, "refresh_token");
+
+      if (!nextAccessToken) {
+        await clearAuthState();
+        appendLog("error", "Refresh response missing access_token. Please run /login.");
+        return null;
+      }
+
+      await saveAndSetAuthState({
+        accessToken: nextAccessToken,
+        refreshToken: nextRefreshToken ?? refreshToken,
+      });
+      appendLog("success", "Token refreshed.");
+      return nextAccessToken;
+    },
+    [authState.refreshToken, appendLog, clearAuthState, options.apiClient, printApiResponse, saveAndSetAuthState, trackRequest],
+  );
+
+  const runWithAutoRefresh = useCallback(
+    async (execute: (accessToken: string) => Promise<ApiResponse>): Promise<ApiResponse> => {
+      const accessToken = ensureLoggedIn();
+      let response = await trackRequest(() => execute(accessToken));
+      printApiResponse(response);
+
+      if (response.status !== 401) {
+        return response;
+      }
+
+      const nextAccessToken = await refreshAccessToken();
+      if (!nextAccessToken) {
+        return response;
+      }
+
+      appendLog("info", "Retrying previous request with refreshed token...");
+      response = await trackRequest(() => execute(nextAccessToken));
+      printApiResponse(response);
+
+      if (response.status === 401) {
+        await clearAuthState();
+        appendLog("error", "Authorization expired or invalid after retry. Please run /login.");
+      }
+
+      return response;
+    },
+    [appendLog, clearAuthState, ensureLoggedIn, printApiResponse, refreshAccessToken, trackRequest],
+  );
 
   useEffect(() => {
     stoppedRef.current = false;
 
     void (async () => {
       try {
-        const token = await loadAuthToken();
-        if (!token) {
+        const session = await loadAuthSession();
+        if (!session) {
           return;
         }
 
-        const probe = await trackRequest(() => options.apiClient.listSessions(token, { page: 1, size: 1 }));
-        printApiResponse(probe);
-
-        if (!probe.ok) {
-          await handleUnauthorized(probe);
-          if (probe.status !== 401) {
-            appendLog("error", "Stored token validation failed. Please run /login.");
-            await clearAuthState();
-          }
+        const expiryMs = readJwtExpiryMs(session.accessToken);
+        if (expiryMs !== null && Date.now() >= expiryMs) {
+          await clearAuthToken();
+          setAuthState({ accessToken: null, refreshToken: null, username: null, loginAt: null });
+          appendLog("error", "Stored token is expired. Please run /login.");
           return;
         }
 
         setAuthState({
-          token,
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken ?? null,
           username: null,
           loginAt: Date.now(),
         });
-        appendLog("success", "Restored access_token from local store.");
+        appendLog("success", "Restored auth session from local store.");
       } catch (error) {
         appendLog("error", `Failed to restore token: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -290,7 +413,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       followAbortRef.current?.abort();
       followAbortRef.current = null;
     };
-  }, [appendLog, clearAuthState, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
+  }, [appendLog]);
 
   useEffect(() => {
     if (!options.themeWarning || themeWarningLoggedRef.current) {
@@ -300,14 +423,10 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     themeWarningLoggedRef.current = true;
   }, [appendLog, options.themeWarning]);
 
-  const ensureLoggedIn = useCallback((): string => {
-    if (!authState.token) {
-      throw new Error("Not logged in. Run /login first.");
-    }
-    return authState.token;
-  }, [authState.token]);
-
   const loginHint = useMemo(() => {
+    if (isFollowingEvents) {
+      return "observer mode> following events (Ctrl+C to stop)";
+    }
     if (loginStep === "await_username") {
       return "login> enter username";
     }
@@ -315,7 +434,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       return "login> enter password (masked)";
     }
     return null;
-  }, [loginStep]);
+  }, [isFollowingEvents, loginStep]);
 
   const consumeLoginStep = useCallback(async (rawInput: string) => {
     const value = rawInput.trim();
@@ -357,32 +476,64 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       printApiResponse(response);
 
       if (!response.ok) {
-        await handleUnauthorized(response);
         setLoginStep("idle");
         loginDraftRef.current = { username: null };
         return;
       }
 
-      const token = readStringField(response.body, "access_token");
-      if (!token) {
+      const accessToken = readStringField(response.body, "access_token");
+      const refreshToken = readStringField(response.body, "refresh_token");
+      if (!accessToken) {
         appendLog("error", "Login response missing access_token.");
         setLoginStep("idle");
         loginDraftRef.current = { username: null };
         return;
       }
 
-      await saveAuthToken(token);
-      setAuthState({ token, username, loginAt: Date.now() });
+      await saveAndSetAuthState({ accessToken, refreshToken, username });
       setLoginStep("idle");
       loginDraftRef.current = { username: null };
       appendLog("success", `Login succeeded for '${username}'.`);
     }
-  }, [appendLog, handleUnauthorized, loginStep, options.apiClient, printApiResponse, trackRequest]);
+  }, [appendLog, loginStep, options.apiClient, printApiResponse, saveAndSetAuthState, trackRequest]);
 
   const executeMcpCommand = useCallback(async (parsed: ParsedCommandInput) => {
-    const token = ensureLoggedIn();
-
     if (parsed.command === "add") {
+      const payloadJsonRaw = readStringOption(parsed.options, "payload-json");
+      if (payloadJsonRaw !== undefined) {
+        const hasConflict =
+          readStringOption(parsed.options, "server-code") !== undefined
+          || readStringOption(parsed.options, "url") !== undefined
+          || readStringOption(parsed.options, "version") !== undefined
+          || readStringOption(parsed.options, "name") !== undefined
+          || readStringOption(parsed.options, "description") !== undefined
+          || readStringOption(parsed.options, "auth-type") !== undefined
+          || readStringOption(parsed.options, "auth-config-json") !== undefined;
+        if (hasConflict) {
+          throw new Error("mcp add --payload-json cannot be used with other add options.");
+        }
+        const payload = parseJsonOption(payloadJsonRaw, "--payload-json");
+        if (!isRecord(payload)) {
+          throw new Error("--payload-json must be a JSON object.");
+        }
+        const requiredFields = ["serverCode", "version", "name", "endpoint", "authType", "authConfig"];
+        for (const field of requiredFields) {
+          if (!(field in payload)) {
+            throw new Error(`mcp add --payload-json missing required field '${field}'.`);
+          }
+        }
+        await runWithAutoRefresh((accessToken) => options.apiClient.createMcp(accessToken, payload as Record<string, unknown> as {
+          serverCode: string;
+          version: string;
+          name: string;
+          endpoint: string;
+          authType: McpAuthType;
+          authConfig: unknown;
+          description?: string;
+        }));
+        return;
+      }
+
       const serverCode = readStringOption(parsed.options, "server-code");
       const endpoint = readStringOption(parsed.options, "url");
       const version = readStringOption(parsed.options, "version");
@@ -395,35 +546,29 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         throw new Error("mcp add --auth-type must be one of NONE|API_KEY|BASIC|OAUTH2|JWT|CUSTOM.");
       }
 
-      const response = await trackRequest(() => options.apiClient.createMcp(token, {
-        server_code: serverCode,
+      await runWithAutoRefresh((accessToken) => options.apiClient.createMcp(accessToken, {
+        serverCode,
         version,
         name: readStringOption(parsed.options, "name") ?? serverCode,
         description: readStringOption(parsed.options, "description"),
         endpoint,
-        auth_type: authTypeRaw as McpAuthType,
-        auth_config: parseJsonOption(readStringOption(parsed.options, "auth-config-json"), "--auth-config-json") ?? {},
+        authType: authTypeRaw as McpAuthType,
+        authConfig: parseJsonOption(readStringOption(parsed.options, "auth-config-json"), "--auth-config-json") ?? {},
       }));
-      printApiResponse(response);
-      await handleUnauthorized(response);
       return;
     }
 
     if (parsed.command === "list") {
-      const response = await trackRequest(() => options.apiClient.listMcp(token, {
+      await runWithAutoRefresh((accessToken) => options.apiClient.listMcp(accessToken, {
         serverCode: readStringOption(parsed.options, "server-code"),
         status: readStringOption(parsed.options, "status"),
       }));
-      printApiResponse(response);
-      await handleUnauthorized(response);
       return;
     }
 
     if (parsed.command === "get") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await trackRequest(() => options.apiClient.getMcp(token, id));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      await runWithAutoRefresh((accessToken) => options.apiClient.getMcp(accessToken, id));
       return;
     }
 
@@ -451,89 +596,107 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         if (!AUTH_TYPES.has(normalized)) {
           throw new Error("mcp update --auth-type must be one of NONE|API_KEY|BASIC|OAUTH2|JWT|CUSTOM.");
         }
-        payload.auth_type = normalized;
+        payload.authType = normalized;
       }
       if (authConfigJson !== undefined) {
-        payload.auth_config = parseJsonOption(authConfigJson, "--auth-config-json");
+        payload.authConfig = parseJsonOption(authConfigJson, "--auth-config-json");
       }
 
       if (Object.keys(payload).length === 0) {
         throw new Error("mcp update requires at least one field to update.");
       }
 
-      const response = await trackRequest(() => options.apiClient.updateMcp(token, id, payload));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      await runWithAutoRefresh((accessToken) => options.apiClient.updateMcp(accessToken, id, payload));
       return;
     }
 
     if (parsed.command === "delete") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await trackRequest(() => options.apiClient.deleteMcp(token, id));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      await runWithAutoRefresh((accessToken) => options.apiClient.deleteMcp(accessToken, id));
       return;
     }
 
     if (parsed.command === "sync") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await trackRequest(() => options.apiClient.syncMcp(token, id));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      await runWithAutoRefresh((accessToken) => options.apiClient.syncMcp(accessToken, id));
       return;
     }
 
     if (parsed.command === "capabilities") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
-      const response = await trackRequest(() => options.apiClient.listCapabilities(token, id));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      await runWithAutoRefresh((accessToken) => options.apiClient.listCapabilities(accessToken, id));
       return;
     }
 
     if (parsed.command === "auth") {
       const id = resolveNumericId("mcp id", parsed.positionals, parsed.options);
       if (parsed.subcommand === "start") {
-        const response = await trackRequest(() => options.apiClient.startMcpAuth(token, id, {
-          connectionName: readStringOption(parsed.options, "connection-name"),
-          returnUrl: readStringOption(parsed.options, "return-url"),
-          credentials: parseJsonOption(readStringOption(parsed.options, "credentials-json"), "--credentials-json"),
-        }));
-        printApiResponse(response);
-        await handleUnauthorized(response);
+        const payloadJsonRaw = readStringOption(parsed.options, "payload-json");
+        let payload: {
+          connectionName?: string;
+          returnUrl?: string;
+          credentials?: unknown;
+        };
+
+        if (payloadJsonRaw !== undefined) {
+          const hasConflict =
+            readStringOption(parsed.options, "connection-name") !== undefined
+            || readStringOption(parsed.options, "return-url") !== undefined
+            || readStringOption(parsed.options, "credentials-json") !== undefined;
+          if (hasConflict) {
+            throw new Error("mcp auth start --payload-json cannot be used with other auth start options.");
+          }
+          const parsedPayload = parseJsonOption(payloadJsonRaw, "--payload-json");
+          if (!isRecord(parsedPayload)) {
+            throw new Error("--payload-json must be a JSON object.");
+          }
+          payload = parsedPayload as {
+            connectionName?: string;
+            returnUrl?: string;
+            credentials?: unknown;
+          };
+        } else {
+          payload = {
+            connectionName: readStringOption(parsed.options, "connection-name"),
+            returnUrl: readStringOption(parsed.options, "return-url"),
+            credentials: parseJsonOption(readStringOption(parsed.options, "credentials-json"), "--credentials-json"),
+          };
+        }
+
+        const response = await runWithAutoRefresh((accessToken) => options.apiClient.startMcpAuth(accessToken, id, payload));
+        const success = readBooleanField(response.body, "success");
+        if (response.ok && success === true) {
+          appendLog("info", "MCP auth succeeded. Triggering capability sync...");
+          await runWithAutoRefresh((accessToken) => options.apiClient.syncMcp(accessToken, id));
+        }
         return;
       }
 
       if (parsed.subcommand === "status") {
-        const response = await trackRequest(() => options.apiClient.getMcpAuthStatus(token, id));
-        printApiResponse(response);
-        await handleUnauthorized(response);
+        await runWithAutoRefresh((accessToken) => options.apiClient.getMcpAuthStatus(accessToken, id));
         return;
       }
 
       if (parsed.subcommand === "delete") {
         const connectionIdRaw = readStringOption(parsed.options, "connection-id");
-        const connectionId = connectionIdRaw ? parsePositiveInt(connectionIdRaw, "connection_id") : undefined;
-        const response = await trackRequest(() => options.apiClient.deleteMcpAuth(token, id, connectionId));
-        printApiResponse(response);
-        await handleUnauthorized(response);
+        const connectionId = connectionIdRaw ? parsePositiveInt(connectionIdRaw, "connectionId") : undefined;
+        await runWithAutoRefresh((accessToken) => options.apiClient.deleteMcpAuth(accessToken, id, connectionId));
         return;
       }
     }
 
     throw new Error("Unsupported mcp command.");
-  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
+  }, [appendLog, options.apiClient, runWithAutoRefresh]);
 
   const executeSessionCommand = useCallback(async (parsed: ParsedCommandInput) => {
-    const token = ensureLoggedIn();
-
     if (parsed.command === "create") {
-      const response = await trackRequest(() => options.apiClient.createSession(token, readStringOption(parsed.options, "title")));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      const response = await runWithAutoRefresh((accessToken) => options.apiClient.createSession(accessToken, readStringOption(parsed.options, "title")));
       if (response.ok) {
-        const sessionId = readNumberField(response.body, "session_id");
-        setActiveSessionId(sessionId);
+        const sessionId = readTaskSessionId(response.body);
+        if (sessionId !== null) {
+          setActiveSessionId(sessionId);
+          appendLog("success", `Switched to session ${sessionId}.`);
+        }
       }
       return;
     }
@@ -541,32 +704,80 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     if (parsed.command === "list") {
       const pageRaw = readStringOption(parsed.options, "page");
       const sizeRaw = readStringOption(parsed.options, "size");
-      const response = await trackRequest(() => options.apiClient.listSessions(token, {
+      await runWithAutoRefresh((accessToken) => options.apiClient.listSessions(accessToken, {
         status: readStringOption(parsed.options, "status"),
         page: pageRaw ? parsePositiveInt(pageRaw, "page") : undefined,
         size: sizeRaw ? parsePositiveInt(sizeRaw, "size") : undefined,
       }));
-      printApiResponse(response);
-      await handleUnauthorized(response);
       return;
     }
 
     if (parsed.command === "get") {
-      const sessionId = resolveNumericId("session_id", parsed.positionals, parsed.options, "session-id");
-      const response = await trackRequest(() => options.apiClient.getSession(token, sessionId));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      const sessionId = resolveNumericId("sessionId", parsed.positionals, parsed.options, "session-id");
+      await runWithAutoRefresh((accessToken) => options.apiClient.getSession(accessToken, sessionId));
+      return;
+    }
+
+    if (parsed.command === "use") {
+      const sessionId = resolveNumericId("sessionId", parsed.positionals, parsed.options, "session-id");
+      const response = await runWithAutoRefresh((accessToken) => options.apiClient.getSession(accessToken, sessionId));
       if (response.ok) {
         setActiveSessionId(sessionId);
+        appendLog("success", `Active session set to ${sessionId}.`);
       }
       return;
     }
 
-    throw new Error("Unsupported session command.");
-  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
+    if (parsed.command === "current") {
+      if (activeSessionId === null) {
+        appendLog("info", "No active session. Use `session create` or `session use <id>`.");
+        return;
+      }
+      await runWithAutoRefresh((accessToken) => options.apiClient.getSession(accessToken, activeSessionId));
+      return;
+    }
 
-  const executeRunEventsFollow = useCallback(async (token: string, taskId: number, controller: AbortController) => {
+    if (parsed.command === "leave") {
+      setActiveSessionId(null);
+      appendLog("success", "Left current session.");
+      return;
+    }
+
+    throw new Error("Unsupported session command.");
+  }, [activeSessionId, appendLog, options.apiClient, runWithAutoRefresh]);
+
+  const executeAuthCommand = useCallback(async (parsed: ParsedCommandInput) => {
+    if (parsed.command !== "refresh") {
+      throw new Error("Unsupported auth command.");
+    }
+    if (parsed.positionals.length > 0) {
+      throw new Error("auth refresh does not accept positional arguments.");
+    }
+    await refreshAccessToken("Manual auth refresh requested.", false);
+  }, [refreshAccessToken]);
+
+  const ensureActiveSession = useCallback((commandName: string): number => {
+    if (activeSessionId === null) {
+      throw new Error(`run ${commandName} requires an active session. Use \`session use <id>\` or \`session create\` first.`);
+    }
+    return activeSessionId;
+  }, [activeSessionId]);
+
+  const assertTaskBelongsToActiveSession = useCallback((taskBody: unknown, commandName: string, expectedSessionId: number) => {
+    const taskSessionId = readTaskSessionId(taskBody);
+    if (taskSessionId === null) {
+      throw new Error(`run ${commandName} response missing sessionId.`);
+    }
+    if (taskSessionId !== expectedSessionId) {
+      throw new Error(
+        `Task belongs to session ${taskSessionId}, but active session is ${expectedSessionId}. Run \`session use ${taskSessionId}\` first.`,
+      );
+    }
+  }, []);
+
+  const executeRunEventsFollow = useCallback(async (taskId: number, expectedSessionId: number, controller: AbortController) => {
     const { signal } = controller;
+    let accessToken = ensureLoggedIn();
     setStreamState("ok");
     let backoffMs = 1000;
 
@@ -576,7 +787,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       try {
         await trackRequest(() => subscribeTaskEvents({
           baseUrl: options.apiClient.baseUrl,
-          token,
+          token: accessToken,
           taskId,
           signal,
           onOpen: (response) => {
@@ -600,10 +811,15 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
         if (error instanceof SseHttpError) {
           printApiResponse(error.response);
-          await handleUnauthorized(error.response);
           if (error.response.status === 401) {
-            setStreamState("retry");
-            return;
+            const refreshed = await refreshAccessToken("SSE unauthorized. Trying auth refresh...");
+            if (!refreshed) {
+              setStreamState("retry");
+              return;
+            }
+            accessToken = refreshed;
+            setStreamState("ok");
+            continue;
           }
           if (!isRetriableHttpStatus(error.response.status)) {
             appendLog("error", `SSE follow stopped due to non-retriable status ${error.response.status}.`);
@@ -613,6 +829,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         } else if (error instanceof Error && error.name === "AbortError") {
           if (terminalEventReached) {
             appendLog("success", "SSE reached terminal event. Follow ended.");
+          } else {
+            appendLog("info", "Observer mode stopped.");
           }
           setStreamState("ok");
           return;
@@ -626,12 +844,20 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         return;
       }
 
-      const probe = await trackRequest(() => options.apiClient.getTask(token, taskId));
-      printApiResponse(probe);
-      await handleUnauthorized(probe);
+      const probe = await runWithAutoRefresh((nextAccessToken) => options.apiClient.getTask(nextAccessToken, taskId));
       if (probe.status === 401) {
         setStreamState("retry");
         return;
+      }
+
+      if (probe.ok) {
+        try {
+          assertTaskBelongsToActiveSession(probe.body, "events", expectedSessionId);
+        } catch (error) {
+          appendLog("error", error instanceof Error ? error.message : String(error));
+          setStreamState("ok");
+          return;
+        }
       }
 
       if (probe.ok && isTerminalTaskStatus(readTaskStatus(probe.body))) {
@@ -650,99 +876,104 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       await sleep(backoffMs);
       backoffMs = Math.min(backoffMs * 2, 8000);
     }
-  }, [appendLog, handleUnauthorized, options.apiClient, printApiResponse, trackRequest]);
-
-  const startBackgroundFollow = useCallback((token: string, taskId: number) => {
-    const label = `run events --follow ${taskId}`;
-
-    if (followAbortRef.current) {
-      const previous = followCommandLabelRef.current;
-      followAbortRef.current.abort();
-      followAbortRef.current = null;
-      if (previous) {
-        appendLog("info", `Stopped previous background stream: ${previous}`);
-      }
-    }
-
-    const controller = new AbortController();
-    followAbortRef.current = controller;
-    followCommandLabelRef.current = label;
-    setActiveCommandLabel(label);
-    appendLog("info", `Background stream started: ${label}`);
-
-    void executeRunEventsFollow(token, taskId, controller).finally(() => {
-      if (followAbortRef.current === controller) {
-        followAbortRef.current = null;
-      }
-      if (followCommandLabelRef.current === label) {
-        followCommandLabelRef.current = null;
-      }
-      setActiveCommandLabel((current) => (current === label ? null : current));
-    });
-  }, [appendLog, executeRunEventsFollow]);
+  }, [appendLog, assertTaskBelongsToActiveSession, ensureLoggedIn, options.apiClient, printApiResponse, refreshAccessToken, runWithAutoRefresh, trackRequest]);
 
   const executeRunCommand = useCallback(async (parsed: ParsedCommandInput) => {
-    const token = ensureLoggedIn();
-
     if (parsed.command === "submit") {
+      const expectedSessionId = ensureActiveSession("submit");
       const objective = readStringOption(parsed.options, "objective");
       if (!objective || objective.trim() === "") {
         throw new Error("run submit requires --objective <text>.");
       }
 
       const sessionIdRaw = readStringOption(parsed.options, "session-id");
-      const sessionId = sessionIdRaw ? parsePositiveInt(sessionIdRaw, "session_id") : undefined;
-      const response = await trackRequest(() => options.apiClient.createTask(token, {
+      const requestedSessionId = sessionIdRaw ? parsePositiveInt(sessionIdRaw, "sessionId") : expectedSessionId;
+      if (requestedSessionId !== expectedSessionId) {
+        throw new Error(
+          `run submit must use active session ${expectedSessionId}. Run \`session use ${requestedSessionId}\` first.`,
+        );
+      }
+
+      const response = await runWithAutoRefresh((accessToken) => options.apiClient.createTask(accessToken, {
         message: objective,
-        session_id: sessionId,
+        sessionId: requestedSessionId,
       }));
-      printApiResponse(response);
-      await handleUnauthorized(response);
       if (response.ok) {
-        setActiveSessionId(readNumberField(response.body, "session_id"));
+        assertTaskBelongsToActiveSession(response.body, "submit", expectedSessionId);
+        setActiveSessionId(readTaskSessionId(response.body));
       }
       return;
     }
 
     if (parsed.command === "status") {
+      const expectedSessionId = ensureActiveSession("status");
       const taskId = resolveTaskId("status", parsed.positionals, parsed.options);
-      const response = await trackRequest(() => options.apiClient.getTask(token, taskId));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      const response = await runWithAutoRefresh((accessToken) => options.apiClient.getTask(accessToken, taskId));
       if (response.ok) {
-        setActiveSessionId(readNumberField(response.body, "session_id"));
+        assertTaskBelongsToActiveSession(response.body, "status", expectedSessionId);
       }
       return;
     }
 
     if (parsed.command === "events") {
+      const expectedSessionId = ensureActiveSession("events");
       const { follow, impliedTaskId } = parseFollowOption(parsed.options);
       if (!follow) {
         throw new Error("run events requires --follow <task_id>.");
       }
       const taskId = resolveTaskId("events", parsed.positionals, parsed.options, impliedTaskId);
-      startBackgroundFollow(token, taskId);
+      const probe = await runWithAutoRefresh((accessToken) => options.apiClient.getTask(accessToken, taskId));
+      if (!probe.ok) {
+        return;
+      }
+      assertTaskBelongsToActiveSession(probe.body, "events", expectedSessionId);
+      if (followAbortRef.current) {
+        followAbortRef.current.abort();
+        followAbortRef.current = null;
+      }
+      const controller = new AbortController();
+      const label = `run events --follow ${taskId}`;
+      followAbortRef.current = controller;
+      setIsFollowingEvents(true);
+      appendLog("info", `Observer mode started: ${label}`);
+      appendLog("info", "Press Ctrl+C to stop observing.");
+      try {
+        await executeRunEventsFollow(taskId, expectedSessionId, controller);
+      } finally {
+        if (followAbortRef.current === controller) {
+          followAbortRef.current = null;
+        }
+        setIsFollowingEvents(false);
+      }
       return;
     }
 
-    if (parsed.command === "artifacts") {
-      const taskId = resolveTaskId("artifacts", parsed.positionals, parsed.options);
-      const response = await trackRequest(() => options.apiClient.getTaskArtifacts(token, taskId));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+    if (parsed.command === "list") {
+      ensureActiveSession("list");
+      const pageRaw = readStringOption(parsed.options, "page");
+      const sizeRaw = readStringOption(parsed.options, "size");
+      await runWithAutoRefresh((accessToken) => options.apiClient.listTasks(accessToken, {
+        status: readStringOption(parsed.options, "status"),
+        page: pageRaw ? parsePositiveInt(pageRaw, "page") : undefined,
+        size: sizeRaw ? parsePositiveInt(sizeRaw, "size") : undefined,
+      }));
       return;
     }
 
     if (parsed.command === "cancel") {
+      const expectedSessionId = ensureActiveSession("cancel");
       const taskId = resolveTaskId("cancel", parsed.positionals, parsed.options);
-      const response = await trackRequest(() => options.apiClient.cancelTask(token, taskId));
-      printApiResponse(response);
-      await handleUnauthorized(response);
+      const probe = await runWithAutoRefresh((accessToken) => options.apiClient.getTask(accessToken, taskId));
+      if (!probe.ok) {
+        return;
+      }
+      assertTaskBelongsToActiveSession(probe.body, "cancel", expectedSessionId);
+      await runWithAutoRefresh((accessToken) => options.apiClient.cancelTask(accessToken, taskId));
       return;
     }
 
     throw new Error("Unsupported run command.");
-  }, [ensureLoggedIn, handleUnauthorized, options.apiClient, printApiResponse, startBackgroundFollow, trackRequest]);
+  }, [appendLog, assertTaskBelongsToActiveSession, ensureActiveSession, executeRunEventsFollow, options.apiClient, runWithAutoRefresh]);
 
   const executeThemeCommand = useCallback(async (parsed: ParsedCommandInput) => {
     if (parsed.command === "list") {
@@ -804,6 +1035,15 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     setIsThemePickerOpen(false);
   }, []);
 
+  const stopActiveFollow = useCallback((): boolean => {
+    if (!followAbortRef.current) {
+      return false;
+    }
+    appendLog("info", "Stopping observer mode...");
+    followAbortRef.current.abort();
+    return true;
+  }, [appendLog]);
+
   const handleSlashCommand = useCallback(async (parsed: Extract<ParsedShellInput, { kind: "slash" }>) => {
     if (parsed.name === "exit") {
       appendLog("info", "Exiting abc-cli...");
@@ -837,6 +1077,18 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
       return;
     }
 
+    if (parsed.name === "sessions") {
+      await executeSessionCommand({
+        kind: "command",
+        raw: "session list",
+        group: "session",
+        command: "list",
+        positionals: [],
+        options: {},
+      });
+      return;
+    }
+
     if (parsed.name === "theme") {
       setIsThemePickerOpen(true);
       appendLog("info", "Theme picker opened. Use Up/Down and Enter to apply.");
@@ -845,7 +1097,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
         themes: THEME_NAMES,
       });
     }
-  }, [appendJsonBlock, appendLog, clearAuthState, executeMcpCommand, options]);
+  }, [appendJsonBlock, appendLog, clearAuthState, executeMcpCommand, executeSessionCommand, options]);
 
   const submitInput = useCallback(async (rawInput?: string) => {
     const input = (rawInput ?? "").trim();
@@ -873,7 +1125,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     appendLog("command", `> ${input}`);
 
     if (parsed.kind === "text") {
-      appendLog("error", "Unknown command. Use /login, /mcp, /theme, theme/mcp/session/run commands, or /exit.");
+      appendLog("error", "Unknown command. Use /login, /mcp, /sessions, /theme, auth/theme/mcp/session/run commands, or /exit.");
       return;
     }
 
@@ -888,6 +1140,11 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
 
       if (parsed.group === "mcp") {
         await executeMcpCommand(parsed);
+        return;
+      }
+
+      if (parsed.group === "auth") {
+        await executeAuthCommand(parsed);
         return;
       }
 
@@ -907,9 +1164,9 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     } finally {
       inFlightRef.current = false;
       runningCommandRef.current = null;
-      setActiveCommandLabel(followCommandLabelRef.current);
+      setActiveCommandLabel(null);
     }
-  }, [appendLog, consumeLoginStep, executeMcpCommand, executeRunCommand, executeSessionCommand, executeThemeCommand, handleSlashCommand, loginStep, options]);
+  }, [appendLog, consumeLoginStep, executeAuthCommand, executeMcpCommand, executeRunCommand, executeSessionCommand, executeThemeCommand, handleSlashCommand, loginStep, options]);
 
   return {
     submitInput,
@@ -922,6 +1179,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     streamState,
     pendingRequestCount,
     activeCommandLabel,
+    isFollowingEvents,
+    stopActiveFollow,
     appendClientLog,
     isThemePickerOpen,
     applyThemeFromPicker,

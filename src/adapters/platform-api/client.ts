@@ -4,6 +4,7 @@ import type {
   CancelTaskResponse,
   CreateMcpRequest,
   CreateTaskResponse,
+  RefreshTokenResponse,
   HttpMethod,
   LoginRequest,
   LoginResponse,
@@ -15,8 +16,8 @@ import type {
   SessionListResponse,
   StartMcpAuthRequest,
   StartMcpAuthResponse,
-  TaskArtifactsResponse,
   TaskDetailResponse,
+  TaskListResponse,
   UpdateMcpRequest,
 } from "./types";
 
@@ -101,11 +102,17 @@ export class PlatformApiClient {
     return this.request("POST", "/auth/login", { body: payload });
   }
 
+  refreshToken(refreshToken: string): Promise<ApiResponse> {
+    return this.request("POST", "/auth/refresh", {
+      body: { refresh_token: refreshToken },
+    });
+  }
+
   listMcp(token: string, params: { serverCode?: string; status?: string } = {}): Promise<ApiResponse> {
     return this.request("GET", "/mcp/servers", {
       token,
       query: {
-        server_code: params.serverCode,
+        serverCode: params.serverCode,
         status: params.status,
       },
     });
@@ -174,19 +181,26 @@ export class PlatformApiClient {
     return this.request("GET", `/sessions/${sessionId}`, { token });
   }
 
-  createTask(token: string, payload: { message: string; session_id?: number }): Promise<ApiResponse> {
+  createTask(token: string, payload: { message: string; sessionId?: number }): Promise<ApiResponse> {
     return this.request("POST", "/tasks", {
       token,
       body: payload,
     });
   }
 
-  getTask(token: string, taskId: number): Promise<ApiResponse> {
-    return this.request("GET", `/tasks/${taskId}`, { token });
+  listTasks(token: string, params: { status?: string; page?: number; size?: number } = {}): Promise<ApiResponse> {
+    return this.request("GET", "/tasks", {
+      token,
+      query: {
+        status: params.status,
+        page: params.page,
+        size: params.size,
+      },
+    });
   }
 
-  getTaskArtifacts(token: string, taskId: number): Promise<ApiResponse> {
-    return this.request("GET", `/tasks/${taskId}/artifacts`, { token });
+  getTask(token: string, taskId: number): Promise<ApiResponse> {
+    return this.request("GET", `/tasks/${taskId}`, { token });
   }
 
   cancelTask(token: string, taskId: number): Promise<ApiResponse> {
@@ -198,6 +212,7 @@ export type {
   CancelTaskResponse,
   CreateMcpRequest,
   CreateTaskResponse,
+  RefreshTokenResponse,
   LoginRequest,
   LoginResponse,
   McpAuthStatusResponse,
@@ -208,7 +223,7 @@ export type {
   SessionListResponse,
   StartMcpAuthRequest,
   StartMcpAuthResponse,
-  TaskArtifactsResponse,
   TaskDetailResponse,
+  TaskListResponse,
   UpdateMcpRequest,
 };

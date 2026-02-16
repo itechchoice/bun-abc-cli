@@ -1,6 +1,6 @@
 # abc-cli
 
-`abc-cli` 是一个基于 `OpenTUI + React + TypeScript + Bun` 的交互壳 CLI，当前按 `requirements/PLATFORM_API.md` 直连后端接口。
+`abc-cli` 是一个基于 `OpenTUI + React + TypeScript + Bun` 的交互壳 CLI，当前按 `requirements/PLATFORM_API_v2.md` 直连后端接口。
 
 ## Requirements
 
@@ -45,22 +45,28 @@ Slash 命令：
 
 - `/login`
 - `/mcp`
+- `/sessions`
 - `/logout`
 - `/exit`
 
 手动命令（核心）：
 
+- `auth refresh`
 - `theme list`
 - `theme current`
 - `theme set light-hc`
 - `mcp add --server-code weather_mcp --url http://127.0.0.1:9001 --version v0`
+- `mcp add --payload-json '{"serverCode":"weather_mcp","version":"v0","name":"Weather","endpoint":"http://127.0.0.1:9001","authType":"NONE","authConfig":{}}'`
 - `mcp list`
 - `mcp get <id>`
 - `session create --title "天气会话"`
-- `run submit --objective "查 San Francisco 三日天气"`
+- `session use <sessionId>`
+- `session current`
+- `session leave`
+- `run list --status RUNNING --page 1 --size 20`
+- `run submit --objective "查 San Francisco 三日天气" --session-id <sessionId>`
 - `run status <task_id>`
 - `run events --follow <task_id>`
-- `run artifacts <task_id>`
 - `run cancel <task_id>`
 
 完整命令契约见：`requirements/cli-command.md`。
@@ -86,7 +92,7 @@ Slash 命令：
 SSE 事件流逐条输出：
 
 ```json
-{"event":"task.created","data":{"task_id":20001,"status":"CREATED"}}
+{"event":"task.created","data":{"taskId":20001,"status":"CREATED"}}
 ```
 
 ## Spinner
@@ -97,11 +103,13 @@ SSE 事件流逐条输出：
 
 ## Token Persistence
 
-- 仅持久化 `access_token`
+- 持久化 `access_token` 与 `refresh_token`
 - 路径：`~/.abc-cli/auth-token.json`
 - 目录权限：`700`
 - 文件权限：`600`
-- 启动时自动探活 token；失效自动清理并提示重新 `/login`
+- 启动时只做本地过期检查（不请求后端）；若 token 过期会自动清理并提示重新 `/login`
+- 支持手动刷新：`auth refresh`
+- 遇到 401 时会自动尝试刷新并重试一次请求
 
 ## Global Install From GitHub
 
