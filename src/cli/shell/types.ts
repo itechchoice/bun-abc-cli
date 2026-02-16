@@ -5,6 +5,8 @@ export interface ShellLogEntry {
   ts: number;
   level: ShellLogLevel;
   text: string;
+  /** When true, text contains JSON and should be rendered with syntax highlighting */
+  isJson?: boolean;
 }
 
 export interface AuthSessionState {
