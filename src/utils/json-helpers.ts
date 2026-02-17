@@ -209,6 +209,44 @@ export function isRetriableHttpStatus(status: number): boolean {
 // Misc utilities
 // ---------------------------------------------------------------------------
 
+/**
+ * Recursively walks a value and attempts to JSON.parse any string that
+ * looks like a JSON object or array. This expands nested JSON-encoded
+ * strings (e.g. `result: "[{\"id\": ...}]"`) into real objects, so they
+ * get properly indented by `JSON.stringify(value, null, 2)`.
+ */
+export function deepParseJsonStrings(value: unknown): unknown {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (
+      (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+      (trimmed.startsWith("[") && trimmed.endsWith("]"))
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return deepParseJsonStrings(parsed);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(deepParseJsonStrings);
+  }
+
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = deepParseJsonStrings(val);
+    }
+    return result;
+  }
+
+  return value;
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

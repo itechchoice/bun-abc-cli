@@ -6,7 +6,7 @@ import { useCallback, useState } from "react";
 import type { ApiResponse } from "../adapters/platform-api/types";
 import type { ShellLogEntry, ShellLogLevel } from "../cli/shell/types";
 import { MAX_LOG_ENTRIES } from "../constants";
-import { nextId } from "../utils/json-helpers";
+import { deepParseJsonStrings, nextId } from "../utils/json-helpers";
 
 export interface ShellLogger {
   appendLog: (level: ShellLogLevel, text: string) => void;
@@ -39,9 +39,23 @@ export function useShellLog(): { logs: ShellLogEntry[]; logger: ShellLogger } {
   }, [appendLog]);
 
   const appendJsonBlock = useCallback((level: ShellLogLevel, value: unknown) => {
-    const pretty = JSON.stringify(value ?? null, null, 2);
-    appendLog(level, pretty);
-  }, [appendLog]);
+    const expanded = deepParseJsonStrings(value ?? null);
+    const pretty = JSON.stringify(expanded, null, 2);
+    setLogs((prev) => {
+      const next: ShellLogEntry = {
+        id: nextId("log"),
+        ts: Date.now(),
+        level,
+        text: pretty,
+        isJson: true,
+      };
+      const merged = [...prev, next];
+      if (merged.length <= MAX_LOG_ENTRIES) {
+        return merged;
+      }
+      return merged.slice(merged.length - MAX_LOG_ENTRIES);
+    });
+  }, []);
 
   const printApiResponse = useCallback((response: ApiResponse) => {
     appendLog("info", `> ${response.method} ${response.path}`);
