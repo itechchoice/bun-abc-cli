@@ -107,11 +107,12 @@ ABC_API_BASE_URL="https://arch.stg.alphabitcore.io/api/v1" bun run dev
 
 ```text
 mcp add --payload-json '{"serverCode":"weather_mcp","version":"v0","name":"Weather","endpoint":"http://127.0.0.1:9001","authType":"NONE","authConfig":{}}'
+mcp add --payload-file ./payloads/mcp-add.json
 ```
 
 - 接口映射：`POST /mcp/servers`
 - 接口用途：一次性提交完整 MCP 注册对象。
-- 关键入参：`--payload-json`（JSON 对象，且与拆分参数互斥）。
+- 关键入参：`--payload-json` 或 `--payload-file`（二选一，且与拆分参数互斥）。
 - 关注返回字段：`id`、`status`、`cacheVersion`。
 
 ### 3.4 MCP 认证
@@ -134,10 +135,10 @@ mcp add --payload-json '{"serverCode":"weather_mcp","version":"v0","name":"Weath
 
 #### 发起认证（整包 JSON 模式）
 
-- 命令：`mcp auth start --id <id> --payload-json <json>`
+- 命令：`mcp auth start --id <id> --payload-json <json>` 或 `mcp auth start --id <id> --payload-file ./payloads/mcp-auth-start.json`
 - 接口映射：`POST /mcp/servers/{id}/auth`
 - 接口用途：一次性提交认证请求对象。
-- 关键入参：`--payload-json`（与拆分参数互斥）。
+- 关键入参：`--payload-json` 或 `--payload-file`（二选一，且与拆分参数互斥）。
 - 关注返回字段：`success`、`connectionId`。
 
 > 当前 CLI 自动动作：当 `mcp auth start` 返回 `success=true` 时，会自动追加一次 `POST /mcp/servers/{id}/sync`。
@@ -345,9 +346,10 @@ mcp add --payload-json '{"serverCode":"weather_mcp","version":"v0","name":"Weath
 
 - 当前是前台观察者模式，目的是避免日志歧义；先等终态或按 `Ctrl+C` 停止观察。
 
-5. **`mcp add --payload-json` 报互斥错误？**
+5. **`mcp add/mcp auth start` 的 payload 参数报互斥错误？**
 
-- `--payload-json` 不能与 `--server-code/--url/--version/...` 同时使用。
+- `--payload-json` 与 `--payload-file` 不能同时使用。
+- payload 模式也不能与拆分参数模式同时使用（例如 `--server-code`、`--connection-name` 等）。
 
 ---
 

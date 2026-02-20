@@ -2,6 +2,7 @@
  * MCP command handlers.
  */
 
+import { readFile } from "node:fs/promises";
 import type { McpAuthType } from "../../adapters/platform-api/types";
 import { AUTH_TYPES } from "../../constants";
 import { readStringOption } from "../shell/parser";
@@ -18,7 +19,9 @@ import type { CommandContext } from "./types";
 export async function executeMcpCommand(ctx: CommandContext, parsed: ParsedCommandInput): Promise<void> {
   if (parsed.command === "add") {
     const payloadJsonRaw = readStringOption(parsed.options, "payload-json");
-    if (payloadJsonRaw !== undefined) {
+    const payloadFilePath = readStringOption(parsed.options, "payload-file");
+    ensureSinglePayloadSource(payloadJsonRaw, payloadFilePath, "mcp add");
+    if (payloadJsonRaw !== undefined || payloadFilePath !== undefined) {
       const hasConflict =
         readStringOption(parsed.options, "server-code") !== undefined
         || readStringOption(parsed.options, "url") !== undefined
@@ -28,16 +31,16 @@ export async function executeMcpCommand(ctx: CommandContext, parsed: ParsedComma
         || readStringOption(parsed.options, "auth-type") !== undefined
         || readStringOption(parsed.options, "auth-config-json") !== undefined;
       if (hasConflict) {
-        throw new Error("mcp add --payload-json cannot be used with other add options.");
+        throw new Error("mcp add --payload-json/--payload-file cannot be used with other add options.");
       }
-      const payload = parseJsonOption(payloadJsonRaw, "--payload-json");
+      const payload = await parsePayloadInput(payloadJsonRaw, payloadFilePath);
       if (!isRecord(payload)) {
-        throw new Error("--payload-json must be a JSON object.");
+        throw new Error("--payload-json/--payload-file must provide a JSON object.");
       }
       const requiredFields = ["serverCode", "version", "name", "endpoint", "authType", "authConfig"];
       for (const field of requiredFields) {
         if (!(field in payload)) {
-          throw new Error(`mcp add --payload-json missing required field '${field}'.`);
+          throw new Error(`mcp add payload missing required field '${field}'.`);
         }
       }
       await ctx.runWithAutoRefresh((accessToken) => ctx.apiClient.createMcp(accessToken, payload as Record<string, unknown> as {
@@ -165,23 +168,25 @@ export async function executeMcpCommand(ctx: CommandContext, parsed: ParsedComma
 
 async function executeMcpAuthStart(ctx: CommandContext, parsed: ParsedCommandInput, id: number): Promise<void> {
   const payloadJsonRaw = readStringOption(parsed.options, "payload-json");
+  const payloadFilePath = readStringOption(parsed.options, "payload-file");
+  ensureSinglePayloadSource(payloadJsonRaw, payloadFilePath, "mcp auth start");
   let payload: {
     connectionName?: string;
     returnUrl?: string;
     credentials?: unknown;
   };
 
-  if (payloadJsonRaw !== undefined) {
+  if (payloadJsonRaw !== undefined || payloadFilePath !== undefined) {
     const hasConflict =
       readStringOption(parsed.options, "connection-name") !== undefined
       || readStringOption(parsed.options, "return-url") !== undefined
       || readStringOption(parsed.options, "credentials-json") !== undefined;
     if (hasConflict) {
-      throw new Error("mcp auth start --payload-json cannot be used with other auth start options.");
+      throw new Error("mcp auth start --payload-json/--payload-file cannot be used with other auth start options.");
     }
-    const parsedPayload = parseJsonOption(payloadJsonRaw, "--payload-json");
+    const parsedPayload = await parsePayloadInput(payloadJsonRaw, payloadFilePath);
     if (!isRecord(parsedPayload)) {
-      throw new Error("--payload-json must be a JSON object.");
+      throw new Error("--payload-json/--payload-file must provide a JSON object.");
     }
     payload = parsedPayload as {
       connectionName?: string;
@@ -202,4 +207,35 @@ async function executeMcpAuthStart(ctx: CommandContext, parsed: ParsedCommandInp
     ctx.logger.appendLog("info", "MCP auth succeeded. Triggering capability sync...");
     await ctx.runWithAutoRefresh((accessToken) => ctx.apiClient.syncMcp(accessToken, id));
   }
+}
+
+function ensureSinglePayloadSource(
+  payloadJsonRaw: string | undefined,
+  payloadFilePath: string | undefined,
+  commandName: string,
+): void {
+  if (payloadJsonRaw !== undefined && payloadFilePath !== undefined) {
+    throw new Error(`${commandName} cannot use --payload-json and --payload-file together.`);
+  }
+}
+
+async function parsePayloadInput(
+  payloadJsonRaw: string | undefined,
+  payloadFilePath: string | undefined,
+): Promise<unknown> {
+  if (payloadFilePath !== undefined) {
+    const normalizedPath = payloadFilePath.trim();
+    if (normalizedPath === "") {
+      throw new Error("--payload-file requires a non-empty file path.");
+    }
+    let raw: string;
+    try {
+      raw = await readFile(normalizedPath, "utf8");
+    } catch (error) {
+      throw new Error(`Failed to read payload file '${normalizedPath}': ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return parseJsonOption(raw, "--payload-file");
+  }
+
+  return parseJsonOption(payloadJsonRaw, "--payload-json");
 }
