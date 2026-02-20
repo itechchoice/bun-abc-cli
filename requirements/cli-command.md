@@ -36,6 +36,7 @@ abc
 
 - `mcp add --server-code <code> --url <endpoint> --version <v> [--name <name>] [--description <text>] [--auth-type <NONE|API_KEY|BASIC|OAUTH2|JWT|CUSTOM>] [--auth-config-json <json>]`
 - `mcp add --payload-json <json>`
+- `mcp add --payload-file <path>`
 - `mcp list [--server-code <code>] [--status <active|inactive>]`
 - `mcp get <id>`
 - `mcp update --id <id> [--name <name>] [--description <text>] [--url <endpoint>] [--auth-type <...>] [--auth-config-json <json>]`
@@ -44,6 +45,7 @@ abc
 - `mcp capabilities --id <id>`
 - `mcp auth start --id <id> [--connection-name <name>] [--return-url <url>] [--credentials-json <json>]`
 - `mcp auth start --id <id> --payload-json <json>`
+- `mcp auth start --id <id> --payload-file <path>`
 - `mcp auth status --id <id>`
 - `mcp auth delete --id <id> [--connection-id <id>]`
 
@@ -51,8 +53,8 @@ abc
 - `mcp auth start` 返回 `success=true` 后，CLI 自动执行一次 `mcp sync --id <id>`。
 
 参数规则：
-- `mcp add --payload-json` 与 `--server-code/--url/--version/...` 互斥。
-- `mcp auth start --payload-json` 与 `--connection-name/--return-url/--credentials-json` 互斥。
+- `mcp add` 中 `--payload-json` 与 `--payload-file` 互斥，且都与 `--server-code/--url/--version/...` 互斥。
+- `mcp auth start` 中 `--payload-json` 与 `--payload-file` 互斥，且都与 `--connection-name/--return-url/--credentials-json` 互斥。
 
 默认值：
 - `name = serverCode`

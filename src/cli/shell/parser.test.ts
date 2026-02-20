@@ -100,6 +100,27 @@ describe("parseShellInput", () => {
     }
   });
 
+  test("parses mcp payload-file mode", () => {
+    const parsed = parseShellInput("mcp add --payload-file ./fixtures/mcp-add.json");
+    expect(parsed.kind).toBe("command");
+    if (parsed.kind === "command") {
+      expect(parsed.group).toBe("mcp");
+      expect(parsed.command).toBe("add");
+      expect(readStringOption(parsed.options, "payload-file")).toBe("./fixtures/mcp-add.json");
+    }
+  });
+
+  test("parses mcp auth start payload-file mode", () => {
+    const parsed = parseShellInput("mcp auth start --id 1 --payload-file ./fixtures/mcp-auth.json");
+    expect(parsed.kind).toBe("command");
+    if (parsed.kind === "command") {
+      expect(parsed.group).toBe("mcp");
+      expect(parsed.command).toBe("auth");
+      expect(parsed.subcommand).toBe("start");
+      expect(readStringOption(parsed.options, "payload-file")).toBe("./fixtures/mcp-auth.json");
+    }
+  });
+
   test("parses run cancel", () => {
     const parsed = parseShellInput("run cancel 2001");
     expect(parsed.kind).toBe("command");

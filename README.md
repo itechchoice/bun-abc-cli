@@ -33,7 +33,7 @@ ABC_API_BASE_URL="https://arch.stg.alphabitcore.io/api/v1" bun run dev
 | 命令                           | 说明                                                   |
 | ------------------------------ | ------------------------------------------------------ |
 | `/mcp`                         | 查看 MCP Server 列表                                   |
-| `mcp add ...`                  | 注册新 MCP（支持参数模式 / `--payload-json` 整包模式） |
+| `mcp add ...`                  | 注册新 MCP（支持参数模式 / `--payload-json` / `--payload-file`） |
 | `mcp get <id>`                 | 查看详情                                               |
 | `mcp update --id <id> ...`     | 更新配置                                               |
 | `mcp delete --id <id>`         | 删除                                                   |
