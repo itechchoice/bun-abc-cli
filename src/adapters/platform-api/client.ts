@@ -77,11 +77,23 @@ export class PlatformApiClient {
       headers.Authorization = `Bearer ${options.token}`;
     }
 
-    const response = await fetch(joinUrl(this.baseUrl, path, options.query), {
+    const fetchOptions: RequestInit = {
       method,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    };
+
+    if (options.followRedirects === false) {
+      fetchOptions.redirect = "manual";
+    }
+
+    const response = await fetch(joinUrl(this.baseUrl, path, options.query), fetchOptions);
+
+    // Capture redirect URL when redirect was intercepted
+    let redirectUrl: string | undefined;
+    if (options.followRedirects === false && response.status >= 300 && response.status < 400) {
+      redirectUrl = response.headers.get("location") ?? undefined;
+    }
 
     const contentType = response.headers.get("content-type") ?? "";
     const raw = await response.text();
@@ -94,6 +106,7 @@ export class PlatformApiClient {
       ok: response.ok,
       contentType,
       body,
+      redirectUrl,
     };
   }
 
@@ -143,6 +156,18 @@ export class PlatformApiClient {
 
   startMcpAuth(token: string, id: number, payload: StartMcpAuthRequest): Promise<ApiResponse> {
     return this.request("POST", `/mcp/servers/${id}/auth`, { token, body: payload });
+  }
+
+  /**
+   * Start OAuth2 auth without following the 302 redirect.
+   * Returns the redirect URL in `response.redirectUrl`.
+   */
+  startMcpAuthOAuth2(token: string, id: number, payload: StartMcpAuthRequest): Promise<ApiResponse> {
+    return this.request("POST", `/mcp/servers/${id}/auth`, {
+      token,
+      body: payload,
+      followRedirects: false,
+    });
   }
 
   getMcpAuthStatus(token: string, id: number): Promise<ApiResponse> {

@@ -5,6 +5,8 @@ export interface ApiRequestOptions {
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
   headers?: Record<string, string>;
+  /** When false, 3xx redirects are NOT followed; the Location header is captured instead. */
+  followRedirects?: boolean;
 }
 
 export interface ApiResponse {
@@ -14,6 +16,8 @@ export interface ApiResponse {
   ok: boolean;
   contentType: string;
   body: unknown;
+  /** Populated when the server returns a 3xx redirect and followRedirects is false. */
+  redirectUrl?: string;
 }
 
 export interface PlatformApiError {

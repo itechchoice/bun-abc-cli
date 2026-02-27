@@ -58,6 +58,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
   const [activeCommandLabel, setActiveCommandLabel] = useState<string | null>(null);
+  const [shellHintOverride, setShellHintOverride] = useState<string | null>(null);
 
   const inFlightRef = useRef(false);
   const runningCommandRef = useRef<string | null>(null);
@@ -68,6 +69,7 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     apiClient: options.apiClient,
     logger,
     runWithAutoRefresh: auth.runWithAutoRefresh,
+    runSilent: auth.runSilent,
     activeSessionId,
     setActiveSessionId,
     themeName: options.themeName,
@@ -76,7 +78,8 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
     refreshAccessToken: auth.refreshAccessToken,
     ensureLoggedIn: auth.ensureLoggedIn,
     startFollow: sse.startFollow,
-  }), [options.apiClient, logger, auth.runWithAutoRefresh, activeSessionId, options.themeName, options.setThemeName, auth.refreshAccessToken, auth.ensureLoggedIn, sse.startFollow]);
+    setShellHint: setShellHintOverride,
+  }), [options.apiClient, logger, auth.runWithAutoRefresh, auth.runSilent, activeSessionId, options.themeName, options.setThemeName, auth.refreshAccessToken, auth.ensureLoggedIn, sse.startFollow]);
 
   // ---- slash command dispatch ----
 
@@ -220,11 +223,14 @@ export function useShellCommandController(options: UseShellCommandControllerOpti
   // ---- login hint (includes SSE follow state) ----
 
   const loginHint = useMemo(() => {
+    if (shellHintOverride) {
+      return shellHintOverride;
+    }
     if (sse.isFollowingEvents) {
       return "observer mode> following events (Ctrl+C to stop)";
     }
     return auth.loginHint;
-  }, [sse.isFollowingEvents, auth.loginHint]);
+  }, [shellHintOverride, sse.isFollowingEvents, auth.loginHint]);
 
   return {
     submitInput,

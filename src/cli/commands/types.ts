@@ -12,6 +12,8 @@ export interface CommandContext {
   apiClient: PlatformApiClient;
   logger: ShellLogger;
   runWithAutoRefresh: (execute: (accessToken: string) => Promise<ApiResponse>) => Promise<ApiResponse>;
+  /** Like runWithAutoRefresh but suppresses API logging and pending-request count. */
+  runSilent: (execute: (accessToken: string) => Promise<ApiResponse>) => Promise<ApiResponse>;
   activeSessionId: number | null;
   setActiveSessionId: (id: number | null) => void;
   themeName: ThemeName;
@@ -20,6 +22,8 @@ export interface CommandContext {
   refreshAccessToken: (reasonLabel?: string, clearWhenMissing?: boolean) => Promise<string | null>;
   ensureLoggedIn: () => string;
   startFollow: (taskId: number, expectedSessionId: number) => Promise<void>;
+  /** Set a custom shell hint (input placeholder). Pass null to clear. */
+  setShellHint: (hint: string | null) => void;
 }
 
 export type CommandHandler = (ctx: CommandContext, parsed: ParsedCommandInput) => Promise<void>;

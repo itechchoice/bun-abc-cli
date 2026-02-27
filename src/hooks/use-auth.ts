@@ -14,6 +14,8 @@ export interface AuthActions {
   ensureLoggedIn: () => string;
   refreshAccessToken: (reasonLabel?: string, clearWhenMissing?: boolean) => Promise<string | null>;
   runWithAutoRefresh: (execute: (accessToken: string) => Promise<ApiResponse>) => Promise<ApiResponse>;
+  /** Like runWithAutoRefresh but suppresses API response logging and pending-request counting. */
+  runSilent: (execute: (accessToken: string) => Promise<ApiResponse>) => Promise<ApiResponse>;
   clearAuthState: () => Promise<void>;
   saveAndSetAuthState: (next: { accessToken: string; refreshToken?: string | null; username?: string | null }) => Promise<void>;
   consumeLoginStep: (rawInput: string) => Promise<void>;
@@ -175,6 +177,32 @@ export function useAuth(options: UseAuthOptions): AuthState & AuthActions {
     [appendLog, clearAuth, ensureLoggedIn, printApiResponse, refreshAccessToken, trackRequest],
   );
 
+  // ---- silent auto-retry (no logging, no pending count) ----
+
+  const runSilent = useCallback(
+    async (execute: (accessToken: string) => Promise<ApiResponse>): Promise<ApiResponse> => {
+      const accessToken = ensureLoggedIn();
+      let response = await execute(accessToken);
+
+      if (response.status !== 401) {
+        return response;
+      }
+
+      const nextAccessToken = await refreshAccessToken();
+      if (!nextAccessToken) {
+        return response;
+      }
+
+      response = await execute(nextAccessToken);
+      if (response.status === 401) {
+        await clearAuth();
+      }
+
+      return response;
+    },
+    [clearAuth, ensureLoggedIn, refreshAccessToken],
+  );
+
   // ---- login two-step state machine ----
 
   const consumeLoginStep = useCallback(async (rawInput: string) => {
@@ -313,6 +341,7 @@ export function useAuth(options: UseAuthOptions): AuthState & AuthActions {
     ensureLoggedIn,
     refreshAccessToken,
     runWithAutoRefresh,
+    runSilent,
     clearAuthState: clearAuth,
     saveAndSetAuthState,
     consumeLoginStep,

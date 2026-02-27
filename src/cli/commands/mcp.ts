@@ -167,6 +167,14 @@ export async function executeMcpCommand(ctx: CommandContext, parsed: ParsedComma
 }
 
 async function executeMcpAuthStart(ctx: CommandContext, parsed: ParsedCommandInput, id: number): Promise<void> {
+  // ── Step 1: Check the server's authType ──────────────────────────────
+  const serverResp = await ctx.runWithAutoRefresh((t) => ctx.apiClient.getMcp(t, id));
+  if (!serverResp.ok || !isRecord(serverResp.body)) {
+    throw new Error(`Failed to fetch MCP server info for id=${id}.`);
+  }
+  const authType = (serverResp.body as Record<string, unknown>).authType as string | undefined;
+
+  // ── Step 2: Build payload from flags ─────────────────────────────────
   const payloadJsonRaw = readStringOption(parsed.options, "payload-json");
   const payloadFilePath = readStringOption(parsed.options, "payload-file");
   ensureSinglePayloadSource(payloadJsonRaw, payloadFilePath, "mcp auth start");
@@ -201,12 +209,120 @@ async function executeMcpAuthStart(ctx: CommandContext, parsed: ParsedCommandInp
     };
   }
 
+  // ── Step 3: OAuth2 flow — browser + polling ──────────────────────────
+  if (authType === "OAUTH2") {
+    await executeOAuth2BrowserFlow(ctx, id, payload);
+    return;
+  }
+
+  // ── Step 4: Non-OAuth2 flow — direct credentials ─────────────────────
   const response = await ctx.runWithAutoRefresh((accessToken) => ctx.apiClient.startMcpAuth(accessToken, id, payload));
   const success = readBooleanField(response.body, "success");
   if (response.ok && success === true) {
     ctx.logger.appendLog("info", "MCP auth succeeded. Triggering capability sync...");
     await ctx.runWithAutoRefresh((accessToken) => ctx.apiClient.syncMcp(accessToken, id));
   }
+}
+
+// ── OAuth2 browser-based auth flow ───────────────────────────────────────
+const OAUTH2_POLL_INTERVAL_MS = 3_000;
+const OAUTH2_TIMEOUT_MS = 5 * 60 * 1_000; // 5 minutes
+
+async function executeOAuth2BrowserFlow(
+  ctx: CommandContext,
+  serverId: number,
+  payload: { connectionName?: string; returnUrl?: string; credentials?: unknown },
+): Promise<void> {
+  ctx.logger.appendLog("info", "OAuth2 detected — initiating browser authorization...");
+
+  // 1. POST auth with redirect interception (this one is logged normally)
+  const authResp = await ctx.runWithAutoRefresh((t) =>
+    ctx.apiClient.startMcpAuthOAuth2(t, serverId, payload),
+  );
+
+  const authUrl = authResp.redirectUrl;
+  if (!authUrl) {
+    // Fallback: maybe the server returned a JSON body with the URL
+    const bodyUrl = isRecord(authResp.body)
+      ? (authResp.body as Record<string, unknown>).authUrl ?? (authResp.body as Record<string, unknown>).auth_url
+      : undefined;
+    if (typeof bodyUrl === "string" && bodyUrl.startsWith("http")) {
+      await openBrowserUrl(bodyUrl);
+      ctx.logger.appendLog("info", `Browser opened → ${bodyUrl}`);
+    } else {
+      throw new Error(
+        `OAuth2 auth did not return a redirect URL (status=${authResp.status}). ` +
+        `Body: ${JSON.stringify(authResp.body)}`,
+      );
+    }
+  } else {
+    await openBrowserUrl(authUrl);
+    ctx.logger.appendLog("info", `Browser opened → ${authUrl}`);
+  }
+
+  // 2. Lock input and poll silently until authenticated or timeout
+  ctx.setShellHint("oauth2> Waiting for authorization in browser... (timeout: 5 min)");
+  const deadline = Date.now() + OAUTH2_TIMEOUT_MS;
+
+  try {
+    while (Date.now() < deadline) {
+      await sleep(OAUTH2_POLL_INTERVAL_MS);
+
+      const statusResp = await ctx.runSilent((t) =>
+        ctx.apiClient.getMcpAuthStatus(t, serverId),
+      );
+
+      if (statusResp.ok && isRecord(statusResp.body)) {
+        const body = statusResp.body as Record<string, unknown>;
+        if (body.authenticated === true) {
+          ctx.logger.appendLog("info", `✅ OAuth2 authorization succeeded! (connectionId: ${body.connectionId ?? "N/A"})`);
+          ctx.logger.appendLog("info", "Triggering capability sync...");
+          await ctx.runWithAutoRefresh((t) => ctx.apiClient.syncMcp(t, serverId));
+          return;
+        }
+      }
+    }
+
+    throw new Error("OAuth2 authorization timed out after 5 minutes. Please try again.");
+  } finally {
+    ctx.setShellHint(null);
+  }
+}
+
+function openBrowserUrl(url: string): Promise<void> {
+  const platform = process.platform;
+  let cmd: string;
+  let args: string[];
+
+  if (platform === "darwin") {
+    cmd = "open";
+    args = [url];
+  } else if (platform === "win32") {
+    cmd = "cmd";
+    args = ["/c", "start", url];
+  } else {
+    // Linux / others
+    cmd = "xdg-open";
+    args = [url];
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const proc = Bun.spawn([cmd, ...args], {
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+      // Don't wait for browser to close; just ensure spawn succeeded
+      proc.unref();
+      resolve();
+    } catch (err) {
+      reject(new Error(`Failed to open browser: ${err instanceof Error ? err.message : String(err)}`));
+    }
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function ensureSinglePayloadSource(
